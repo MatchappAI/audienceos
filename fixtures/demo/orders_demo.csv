@@ -1,0 +1,6 @@
+id,Amount,Amount Refunded,Fee,Created (UTC),utm_source
+ch_demo_001,39.00,0,1.43,2026-10-20,instagram
+ch_demo_002,39.00,0,1.43,2026-10-20,newsletter
+ch_demo_003,39.00,39.00,1.43,2026-10-21,instagram
+ch_demo_004,39.00,0,1.43,2026-10-21,newsletter
+ch_demo_005,39.00,0,1.43,2026-10-22,newsletter

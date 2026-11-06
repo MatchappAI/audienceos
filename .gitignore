@@ -1,0 +1,22 @@
+# Local data (creator material, DB, backups) — never commit
+data/
+runtime/
+*.db
+*.db-*
+*.pid
+*.log
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Node / build
+node_modules/
+frontend/dist/
+
+# OS / editor
+.DS_Store
+.env
+.env.*
