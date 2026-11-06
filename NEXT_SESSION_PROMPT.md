@@ -74,7 +74,7 @@ You are the autonomous CTO/engineer finishing **AudienceOS** at `~/AudienceOS`. 
    - YouTube and Brave keys are optional
 
 ## Useful notes
-- **Scratch test server:** port 8761, data dir `/private/tmp/claude-501/-Users-mohil/71e6bdb8-7ac2-4f52-95b1-1f67e40c04ed/scratchpad/data1`. It may be gone by now; recreate it with `AUDIENCEOS_DATA=<dir> AUDIENCEOS_PORT=8761`.
+- **Scratch test server:** port 8761, data dir a scratch folder. It may be gone by now; recreate it with `AUDIENCEOS_DATA=<dir> AUDIENCEOS_PORT=8761`.
 - **Required headers:** non-GET API calls need the header `x-audienceos: 1`. The Host must be localhost or 127.0.0.1.
 - **Keychain in tests:** set `AUDIENCEOS_NO_KEYCHAIN=1`.
 - **Ollama:** `OLLAMA_MODELS=~/AudienceOS/runtime/models`. `start.sh` starts it if it isn't running.

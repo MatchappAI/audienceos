@@ -8,6 +8,8 @@ const KEYS: [string, string, string][] = [
   ["openai_api_key", "OpenAI API key", "Optional alternative external model. Paid usage."],
   ["youtube_api_key", "YouTube Data API key", "Free from Google Cloud. Imports public comments and view/like counts for YouTube links."],
   ["brave_api_key", "Brave Search API key", "Free tier available. Enables automated competitor search when web research is on."],
+  ["stripe_api_key", "Stripe restricted key (read-only)", "Pulls orders for products sold through Stripe Payment Links. Create a restricted key with read access to Checkout Sessions, Payment Intents, Charges and Balance transactions. Sent only to api.stripe.com."],
+  ["gumroad_access_token", "Gumroad access token", "Pulls orders for Gumroad products. Gumroad → Settings → Advanced → Applications → generate an access token. Sent only to api.gumroad.com."],
 ];
 
 function Toggle({ on, onChange, label, help }: { on: boolean; onChange: (v: boolean) => void; label: string; help?: string }) {

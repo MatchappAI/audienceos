@@ -35,7 +35,8 @@ DEFAULTS = {
     "theme": "system",
 }
 
-SECRET_NAMES = ("anthropic_api_key", "openai_api_key", "youtube_api_key", "brave_api_key")
+SECRET_NAMES = ("anthropic_api_key", "openai_api_key", "youtube_api_key", "brave_api_key",
+                "stripe_api_key", "gumroad_access_token")
 _mem_secrets: dict[str, str] = {}  # fallback if Keychain is unavailable (e.g. tests)
 
 

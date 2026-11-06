@@ -6,8 +6,14 @@ Definitions (shown in the UI next to every number):
   Split base (contribution basis) = net sales − payment fees − shared costs
   Creator share       = max(0, split base) × creator %     (losses are not charged to the creator)
   Agency share        = split base − creator share
-  Balance owed        = all-time creator share − all-time payouts
+  Loss carry-forward (deal option, off by default):
+                        losses on any product, in any period, offset profits before the creator's share is
+                        taken — creator share = max(0, cumulative split base of all products) × creator %
+  Minimum guarantee (deal option): a recoupable monthly minimum for each COMPLETED month since the deal
+                        start (capped at the guaranteed months) — entitlement = max(earned share, guarantee to date)
+  Balance owed        = all-time entitlement − all-time payouts
 """
+from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 
 from .. import db
@@ -67,16 +73,22 @@ def statement(org_id: str, start: str | None = None, end: str | None = None) -> 
     for p in products:
         pnl = product_pnl(p, start, end)
         base = pnl["net_sales"] - pnl["fees"] - (pnl["shared_costs"] if basis == "contribution" else 0)
-        cshare = money(max(0.0, base) * pct / 100) if pct is not None else None
+        cf = bool(deal and deal.get("loss_carry_forward"))
+        cshare = (money((base if cf else max(0.0, base)) * pct / 100)) if pct is not None else None
         line = {"product_id": p["id"], "product": p["name"], "status": p["status"], "launched_at": p.get("launched_at"), **pnl, "split_base": round(base, 2),
                 "creator_share": cshare, "agency_share": money(base - cshare) if cshare is not None else None}
         lines.append(line)
         for k in tot:
             tot[k] += line.get(k) or 0
     tot = {k: round(v, 2) for k, v in tot.items()}
+    tot["orders"] = int(tot["orders"])
+    if deal and deal.get("loss_carry_forward") and pct is not None:  # losses offset profits across products
+        tot["creator_share"] = money(max(0.0, tot["split_base"]) * pct / 100)
+        tot["agency_share"] = money(tot["split_base"] - tot["creator_share"])
     tot["agency_net_after_own_costs"] = round(tot["agency_share"] - tot["agency_only_costs"], 2)
     # Balance uses all-time figures regardless of the period filter.
-    all_time = statement_totals_all_time(org_id, pct, basis) if pct is not None else None
+    entitlement = entitlement_all_time(org_id, deal) if deal else None
+    all_time = entitlement["entitlement"] if entitlement else None
     paid = db.scalar("SELECT COALESCE(SUM(amount),0) FROM payouts WHERE organization_id=?", (org_id,)) or 0
     warnings = []
     if not deal:
@@ -84,21 +96,71 @@ def statement(org_id: str, start: str | None = None, end: str | None = None) -> 
     if any(l["fees_missing"] for l in lines):
         warnings.append("Some sales have no payment-fee data; fees are counted as $0 for those orders. Import fee columns from your checkout export.")
     if any(l["split_base"] < 0 for l in lines):
-        warnings.append("At least one product has a negative split base. Losses are not charged to the creator.")
+        warnings.append("At least one product has a negative split base. "
+                        + ("Under this deal's loss carry-forward, it offsets profits on other products and later periods."
+                           if deal and deal.get("loss_carry_forward") else "Losses are not charged to the creator."))
     return {"organization": org, "deal": deal, "period": {"start": start, "end": end}, "lines": lines, "totals": tot,
             "payouts": db.all_("SELECT * FROM payouts WHERE organization_id=? ORDER BY date DESC", (org_id,)),
-            "all_time_creator_share": all_time, "paid_out": round(paid, 2),
+            "all_time_creator_share": all_time, "entitlement": entitlement, "paid_out": round(paid, 2),
             "balance_owed": round(all_time - paid, 2) if all_time is not None else None, "warnings": warnings,
             "definitions": __doc__.split("Definitions (shown in the UI next to every number):")[1].strip()}
 
 
-def statement_totals_all_time(org_id, pct, basis) -> float:
-    total = 0.0
+def statement_totals_all_time(org_id, pct, basis, carry_forward: bool = False) -> float:
+    """Earned creator share, all time. Per-product floor at 0 unless losses carry forward deal-wide."""
+    total, cum = 0.0, 0.0
     for p in db.all_("SELECT p.* FROM products p JOIN audiences a ON a.id=p.audience_id WHERE a.organization_id=?", (org_id,)):
         pnl = product_pnl(p)
         base = pnl["net_sales"] - pnl["fees"] - (pnl["shared_costs"] if basis == "contribution" else 0)
+        cum += base
         total += money(max(0.0, base) * pct / 100)
-    return round(total, 2)
+    return money(max(0.0, cum) * pct / 100) if carry_forward else round(total, 2)
+
+
+def cumulative_split_base(org_id, basis) -> float:
+    cum = 0.0
+    for p in db.all_("SELECT p.* FROM products p JOIN audiences a ON a.id=p.audience_id WHERE a.organization_id=?", (org_id,)):
+        pnl = product_pnl(p)
+        cum += pnl["net_sales"] - pnl["fees"] - (pnl["shared_costs"] if basis == "contribution" else 0)
+    return round(cum, 2)
+
+
+def completed_months(start: str, until: date) -> int:
+    """Whole calendar months completed from `start` (YYYY-MM-DD) up to `until`."""
+    try:
+        s = date.fromisoformat(start[:10])
+    except (TypeError, ValueError):
+        return 0
+    m = (until.year - s.year) * 12 + (until.month - s.month) - (1 if until.day < s.day else 0)
+    return max(0, m)
+
+
+def entitlement_all_time(org_id: str, deal: dict, today: date | None = None) -> dict:
+    """What the creator is entitled to so far: earned share, plus any minimum-guarantee top-up."""
+    pct, basis, cf = deal["creator_share_pct"], deal["basis"], bool(deal.get("loss_carry_forward"))
+    earned = statement_totals_all_time(org_id, pct, basis, cf)
+    cum = cumulative_split_base(org_id, basis)
+    out = {"earned": earned, "loss_carry_forward": cf,
+           "loss_carried_forward": round(-cum, 2) if cf and cum < 0 else 0.0,
+           "guarantee_monthly": deal.get("min_guarantee_monthly"), "guarantee_months_completed": 0,
+           "guaranteed_to_date": 0.0, "guarantee_top_up": 0.0}
+    g = deal.get("min_guarantee_monthly")
+    if g:
+        today = today or date.today()
+        until = today
+        if deal.get("end_date"):
+            try:
+                until = min(today, date.fromisoformat(deal["end_date"][:10]))
+            except ValueError:
+                pass
+        months = completed_months(deal.get("start_date") or deal["created_at"][:10], until)
+        if deal.get("guarantee_months"):
+            months = min(months, int(deal["guarantee_months"]))
+        out["guarantee_months_completed"] = months
+        out["guaranteed_to_date"] = money(g * months)
+        out["guarantee_top_up"] = money(max(0.0, out["guaranteed_to_date"] - earned))
+    out["entitlement"] = money(earned + out["guarantee_top_up"])
+    return out
 
 
 def stage(org_id: str) -> str:

@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from . import config, db, demo, jobs  # noqa: F401  (demo registers routes)
 from .ai import pipeline  # noqa: F401  (registers job handlers)
 from .ingest import runner  # noqa: F401
-from .routers import core, monetize
+from .routers import core, money, monetize
 from .services import assets, competitors  # noqa: F401
 
 handler = logging.handlers.RotatingFileHandler(config.LOGS_DIR / "audienceos.log", maxBytes=5_000_000, backupCount=3)
@@ -58,6 +58,7 @@ async def unhandled(request: Request, exc: Exception):
 
 app.include_router(core.r)
 app.include_router(monetize.r)
+app.include_router(money.r)
 
 if (config.FRONTEND_DIST / "index.html").exists():
     app.mount("/assets", StaticFiles(directory=config.FRONTEND_DIST / "assets"), name="static")

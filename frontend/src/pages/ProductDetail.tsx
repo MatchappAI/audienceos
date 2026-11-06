@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { del, patch, post, upload } from "../api";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { del, patch, post, put, upload } from "../api";
 import { date, dateTime, money, today } from "../format";
 import { Demo, ErrorBox, Loading, Stat, Status, useApi, useAsync, useToast, V } from "../components/ui";
 
@@ -160,6 +160,63 @@ function Costs({ p, reload }: { p: any; reload: () => void }) {
   );
 }
 
+function NextTests({ p }: { p: any }) {
+  const { data } = useApi<any>(`/api/products/${p.id}/next-tests?v=${p.updated_at}-${p.pnl.orders}`);
+  const act = useAsync();
+  const nav = useNavigate();
+  if (!data || data.suggestions.length === 0) return null;
+  const create = async (prefill: any) => { const x = await act.run(() => post(`/api/experiments`, prefill)); if (x) nav(`/validation/${x.id}`); };
+  return (
+    <div className="card">
+      <h2>Next tests</h2>
+      <p className="small muted">Suggested from this product's sales, channels, refunds and margin. You decide what to run.</p>
+      <div className="stack" style={{ gap: 12 }}>{data.suggestions.map((s: any) => (
+        <div key={s.kind + s.title} style={{ borderTop: "1px solid var(--line)", paddingTop: 10 }}>
+          <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div><div className="strong small">{s.title}</div><div className="small muted">{s.why}</div></div>
+            {s.experiment && <button className="btn sm" onClick={() => create(s.experiment)} disabled={act.busy}>Create experiment</button>}
+          </div>
+        </div>))}</div>
+      {data.prices_tested.length > 0 && <p className="tiny faint mt">Prices tried so far: {data.prices_tested.map((x: number) => money(x)).join(", ")}</p>}
+      <ErrorBox error={act.error} />
+    </div>
+  );
+}
+
+function CheckoutSync({ p, reload }: { p: any; reload: () => void }) {
+  const [f, setF] = useState({ sync_provider: p.sync_provider || "", sync_ref: p.sync_ref || "" });
+  useEffect(() => setF({ sync_provider: p.sync_provider || "", sync_ref: p.sync_ref || "" }), [p.id, p.sync_provider, p.sync_ref]);
+  const act = useAsync();
+  const toast = useToast();
+  const dirty = f.sync_provider !== (p.sync_provider || "") || f.sync_ref !== (p.sync_ref || "");
+  const save = async () => { if (await act.run(() => put(`/api/products/${p.id}/sync`, { sync_provider: f.sync_provider || null, sync_ref: f.sync_ref || null }))) { toast("Saved"); reload(); } };
+  const sync = async () => {
+    const r = await act.run(() => post(`/api/products/${p.id}/sync`));
+    if (r) { toast(`${r.result.new} new order${r.result.new === 1 ? "" : "s"}${r.result.updated ? `, ${r.result.updated} updated` : ""}`); reload(); }
+  };
+  const ls = p.last_sync;
+  return (
+    <div className="card">
+      <h2>Checkout sync</h2>
+      <p className="small muted">Pull orders straight from the checkout instead of a CSV. Read-only; keys live in Settings.</p>
+      <div className="grid" style={{ gridTemplateColumns: "1fr", gap: 8 }}>
+        <select value={f.sync_provider} onChange={(e) => setF({ ...f, sync_provider: e.target.value })} aria-label="Provider">
+          <option value="">Off — import CSV instead</option><option value="stripe">Stripe Payment Link</option><option value="gumroad">Gumroad</option></select>
+        {f.sync_provider && <input value={f.sync_ref} onChange={(e) => setF({ ...f, sync_ref: e.target.value })} aria-label="ID"
+          placeholder={f.sync_provider === "stripe" ? "Payment Link ID, plink_…" : "Gumroad product ID"} />}
+      </div>
+      {f.sync_provider === "stripe" && <p className="tiny faint mt">Channel comes from client_reference_id — add ?client_reference_id=instagram (etc.) to each link you share.</p>}
+      <div className="row mt">
+        {dirty && <button className="btn primary sm" onClick={save} disabled={act.busy}>Save</button>}
+        {!dirty && p.sync_provider && <button className="btn primary sm" onClick={sync} disabled={act.busy}>{act.busy ? "Syncing…" : "Sync now"}</button>}
+      </div>
+      {ls && <p className="tiny faint mt">Last sync {dateTime(ls.at)}: {ls.fetched} orders fetched, {ls.new} new, {ls.updated} updated.</p>}
+      {ls?.warnings?.map((w: string) => <div key={w} className="notice warn small mt">{w}</div>)}
+      <ErrorBox error={act.error} />
+    </div>
+  );
+}
+
 export default function ProductDetail() {
   const { id = "" } = useParams();
   const { data: p, error, loading, reload } = useApi<any>(`/api/products/${id}`);
@@ -197,7 +254,9 @@ export default function ProductDetail() {
           )}
         </div>
         <div className="stack">
+          <NextTests p={p} />
           <Launch p={p} reload={reload} />
+          <CheckoutSync p={p} reload={reload} />
           <Setup p={p} reload={reload} />
         </div>
       </div>

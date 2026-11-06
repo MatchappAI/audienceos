@@ -71,7 +71,21 @@ export default function Creators() {
           </table>
         </div>
       )}
+      <PayoutsDue />
       <p className="small muted mt">Stages: {data?.stages.map((s: any) => s.label).join(" → ")}. Each stage is derived from stored data (sources, opportunities, experiments, products, sales).</p>
+    </div>
+  );
+}
+
+function PayoutsDue() {
+  const { data } = useApi<any>("/api/payouts/due");
+  if (!data || data.rows.length === 0) return null;
+  return (
+    <div className="card mt2">
+      <div className="card-head"><h2>Payouts due · {money(data.total)}</h2><a className="btn primary sm" href="/api/payouts/export.csv">Download payout file</a></div>
+      <table className="t small"><tbody>{data.rows.map((r: any) => (
+        <tr key={r.organization_id}><td><Link to={`/creators/${r.organization_id}`}>{r.creator}</Link></td><td className="muted">{r.recipientEmail || <span className="badge warn">no email</span>}</td><td className="num strong">{money(Number(r.amount))}</td></tr>))}</tbody></table>
+      <p className="tiny faint mt">CSV in Wise batch-payment format (works as a plain list for any bank). After you pay, record each payout on the creator's page. Demo creators are excluded.</p>
     </div>
   );
 }
@@ -79,10 +93,12 @@ export default function Creators() {
 function DealCard({ st, orgId, reload }: { st: any; orgId: string; reload: () => void }) {
   const d = st.deal;
   const [edit, setEdit] = useState(!d);
-  const [f, setF] = useState({ creator_share_pct: d?.creator_share_pct ?? 70, basis: d?.basis ?? "contribution", start_date: d?.start_date ?? "", end_date: d?.end_date ?? "", notes: d?.notes ?? "" });
+  const [f, setF] = useState<any>({ creator_share_pct: d?.creator_share_pct ?? 70, basis: d?.basis ?? "contribution", start_date: d?.start_date ?? "", end_date: d?.end_date ?? "", notes: d?.notes ?? "",
+    loss_carry_forward: !!d?.loss_carry_forward, min_guarantee_monthly: d?.min_guarantee_monthly ?? "", guarantee_months: d?.guarantee_months ?? "" });
   const act = useAsync();
   const save = async () => {
-    if (await act.run(() => post(`/api/creators/${orgId}/deal`, { ...f, creator_share_pct: Number(f.creator_share_pct), start_date: f.start_date || null, end_date: f.end_date || null, notes: f.notes || null }))) { setEdit(false); reload(); }
+    if (await act.run(() => post(`/api/creators/${orgId}/deal`, { ...f, creator_share_pct: Number(f.creator_share_pct), start_date: f.start_date || null, end_date: f.end_date || null, notes: f.notes || null,
+      min_guarantee_monthly: f.min_guarantee_monthly === "" ? null : Number(f.min_guarantee_monthly), guarantee_months: f.guarantee_months === "" ? null : Number(f.guarantee_months) }))) { setEdit(false); reload(); }
   };
   return (
     <div className="card">
@@ -91,6 +107,8 @@ function DealCard({ st, orgId, reload }: { st: any; orgId: string; reload: () =>
         <dl className="kv small">
           <dt>Split</dt><dd><b>{d.creator_share_pct}%</b> to creator · <b>{100 - d.creator_share_pct}%</b> to agency</dd>
           <dt>Split base</dt><dd>{d.basis === "contribution" ? "Contribution — net sales minus payment fees minus shared costs" : "Net sales minus payment fees"}</dd>
+          <dt>Losses</dt><dd>{d.loss_carry_forward ? "Carry forward — offset against later profit across all products" : "Not charged to the creator (each product floored at $0)"}</dd>
+          <dt>Minimum</dt><dd>{d.min_guarantee_monthly ? `${money(d.min_guarantee_monthly)}/month, recoupable${d.guarantee_months ? `, for ${d.guarantee_months} months` : ""}` : "None"}</dd>
           <dt>Term</dt><dd>{!d.start_date && !d.end_date ? "Open-ended" : `${d.start_date ? date(d.start_date) : "—"} to ${d.end_date ? date(d.end_date) : "open-ended"}`}</dd>
           <dt>Notes</dt><dd>{d.notes || "—"}</dd>
         </dl>
@@ -105,6 +123,13 @@ function DealCard({ st, orgId, reload }: { st: any; orgId: string; reload: () =>
             <label className="field"><span>Start</span><input type="date" value={f.start_date} onChange={(e) => setF({ ...f, start_date: e.target.value })} /></label>
             <label className="field"><span>End</span><input type="date" value={f.end_date} onChange={(e) => setF({ ...f, end_date: e.target.value })} /></label>
           </div>
+          <label className="check small"><input type="checkbox" checked={f.loss_carry_forward} onChange={(e) => setF({ ...f, loss_carry_forward: e.target.checked })} />
+            <span>Carry losses forward — a loss on one product or month is offset against later profit before the creator's share</span></label>
+          <div className="grid g2">
+            <label className="field"><span>Minimum guarantee ($/month)</span><input type="number" min={0} step="0.01" value={f.min_guarantee_monthly} placeholder="none" onChange={(e) => setF({ ...f, min_guarantee_monthly: e.target.value })} /></label>
+            <label className="field"><span>Guaranteed months</span><input type="number" min={1} value={f.guarantee_months} placeholder="open-ended" onChange={(e) => setF({ ...f, guarantee_months: e.target.value })} /></label>
+          </div>
+          {f.min_guarantee_monthly !== "" && Number(f.min_guarantee_monthly) > 0 && <p className="tiny faint">Recoupable: for each completed month from the start date, the creator is owed at least this much in total; their earned share pays it back first.</p>}
           <label className="field"><span>Notes</span><input value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} placeholder="e.g. signed agreement dated…" /></label>
           <p className="small muted">Agency share = {100 - Number(f.creator_share_pct || 0)}%. Changing terms ends the current deal and starts a new one; it applies to all-time figures in statements.</p>
           <div className="row"><button className="btn primary" onClick={save} disabled={act.busy}>Save deal</button>{d && <button className="btn" onClick={() => setEdit(false)}>Cancel</button>}</div>
@@ -146,7 +171,9 @@ export function CreatorDetail() {
           <div className="row" style={{ gap: 8 }}><h1>{org.name}</h1><Demo on={org.is_demo} /></div>
           <div className="sub">{org.contact_name || "No contact"}{org.contact_email ? ` · ${org.contact_email}` : ""} <button className="linkbtn small" onClick={() => setContact({ contact_name: org.contact_name || "", contact_email: org.contact_email || "" })}>edit</button></div>
         </div>
-        <div className="row">{myAuds.map((a) => <Link key={a.id} className="btn sm" to={`/audiences/${a.id}`}>{a.name}</Link>)}</div>
+        <div className="row">{myAuds.map((a) => <Link key={a.id} className="btn sm" to={`/audiences/${a.id}`}>{a.name}</Link>)}
+          <a className="btn sm" href={`/api/creators/${id}/portal`} target="_blank" rel="noreferrer" title="Read-only page for the creator: earnings, products, channels, payouts">Creator view ↗</a>
+          <a className="btn sm" href={`/api/creators/${id}/portal?download=true`} title="Download the creator view as one HTML file to send them">Download for creator</a></div>
       </div>
       {contact && (
         <div className="card mb row">
@@ -156,11 +183,12 @@ export function CreatorDetail() {
         </div>
       )}
       {st.warnings.map((w: string) => <div key={w} className="notice warn small mb">{w}</div>)}
+      {st.entitlement?.loss_carried_forward > 0 && <div className="notice small mb">A loss of <b>{money(st.entitlement.loss_carried_forward)}</b> is carried forward; it's offset against future profit before the creator's share.</div>}
       <div className="grid g4">
         <Stat label="Net sales (period)" value={money(t.net_sales)} hint={`${t.orders} orders · ${money(t.refunds)} refunded`} />
         <Stat label="Creator share (period)" value={st.deal ? money(t.creator_share) : "—"} hint={st.deal ? `${st.deal.creator_share_pct}% of split base ${money(t.split_base)}` : "set a deal"} />
         <Stat label="Agency share (period)" value={st.deal ? money(t.agency_share) : "—"} hint={st.deal ? `${money(t.agency_net_after_own_costs)} after agency-only costs` : "set a deal"} />
-        <Stat label="Balance owed to creator" value={st.balance_owed == null ? "—" : money(st.balance_owed)} hint={st.deal ? `all-time ${money(st.all_time_creator_share)} − paid ${money(st.paid_out)}` : "set a deal"} />
+        <Stat label="Balance owed to creator" value={st.balance_owed == null ? "—" : money(st.balance_owed)} hint={st.deal ? `entitled ${money(st.all_time_creator_share)}${st.entitlement?.guarantee_top_up ? ` (incl. ${money(st.entitlement.guarantee_top_up)} guarantee)` : ""} − paid ${money(st.paid_out)}` : "set a deal"} />
       </div>
       <div className="grid g-side mt2">
         <div className="stack">
@@ -170,7 +198,8 @@ export function CreatorDetail() {
                 <input type="date" value={period.start} onChange={(e) => setPeriod({ ...period, start: e.target.value })} style={{ width: 150 }} aria-label="From" /> to
                 <input type="date" value={period.end} onChange={(e) => setPeriod({ ...period, end: e.target.value })} style={{ width: 150 }} aria-label="To" />
                 {(period.start || period.end) && <button className="btn ghost sm" onClick={() => setPeriod({ start: "", end: "" })}>All time</button>}
-                <a className="btn sm" href={`/api/creators/${id}/statement.csv?${qs}`}>Download CSV</a>
+                <a className="btn sm" href={`/api/creators/${id}/statement.csv?${qs}`}>CSV</a>
+                <a className="btn sm" href={`/api/creators/${id}/statement.pdf?${qs}`}>PDF</a>
               </div></div>
             {st.lines.length === 0 ? <Empty title="No products yet">Products created from this creator's opportunities appear here with their sales and costs.</Empty> : (
               <div className="table-wrap">

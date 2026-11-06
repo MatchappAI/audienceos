@@ -488,6 +488,9 @@ class DealIn(BaseModel):
     start_date: str | None = None
     end_date: str | None = None
     notes: str | None = None
+    loss_carry_forward: bool = False
+    min_guarantee_monthly: float | None = Field(default=None, ge=0)
+    guarantee_months: int | None = Field(default=None, gt=0)
 
 
 @r.post("/creators/{org_id}/deal")
@@ -496,7 +499,9 @@ def set_deal(org_id: str, body: DealIn):
     with db.tx() as c:
         c.execute("UPDATE deals SET status='ended', updated_at=? WHERE organization_id=? AND status='active'", (db.now(), org_id))
         db.insert(c, "deals", {"id": db.new_id("dl"), "organization_id": org_id, "status": "active",
-                               "created_at": db.now(), "updated_at": db.now(), **body.model_dump()})
+                               "created_at": db.now(), "updated_at": db.now(),
+                               **{**body.model_dump(), "loss_carry_forward": int(body.loss_carry_forward),
+                                  "min_guarantee_monthly": body.min_guarantee_monthly or None}})
         aid = c.execute("SELECT id FROM audiences WHERE organization_id=? LIMIT 1", (org_id,)).fetchone()
         db.log_activity(c, aid[0] if aid else None, "deal",
                         f"Deal set: creator {body.creator_share_pct:g}% / agency {100 - body.creator_share_pct:g}% of {body.basis.replace('_', ' ')}")

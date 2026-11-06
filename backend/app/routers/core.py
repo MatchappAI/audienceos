@@ -211,7 +211,9 @@ def next_actions() -> list[dict]:
             out.append({"kind": "decide", "text": f"'{pr['name']}' is approved — mark it launched once it's live on the storefront", "link": f"/products/{pr['id']}"})
         elif pr["status"] == "launched" and not pr["n"]:
             out.append({"kind": "import", "text": f"'{pr['name']}' is live — import its first orders from the checkout", "link": f"/products/{pr['id']}"})
-    return out[:8]
+    # A running analysis is status, not a to-do: always show it, whatever else is queued up.
+    running = [x for x in out if x["text"].startswith("Analysis running")]
+    return (running + [x for x in out if x not in running])[:8]
 
 
 # ---------- audiences ----------
