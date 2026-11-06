@@ -48,9 +48,11 @@ def embed(texts: list[str]) -> np.ndarray | None:
         return None
     texts = [(t or " ")[:MAX_CHARS] for t in texts[:MAX_TEXTS]]
     vecs: list[list[float]] = []
+    # nomic-embed-text is trained with task prefixes; without one, short comments from one niche all look alike.
+    prefix = "clustering: " if "nomic" in model_name() else ""
     try:
         for k in range(0, len(texts), BATCH):
-            r = httpx.post(f"{config.OLLAMA_URL}/api/embed", json={"model": model_name(), "input": texts[k:k + BATCH]},
+            r = httpx.post(f"{config.OLLAMA_URL}/api/embed", json={"model": model_name(), "input": [prefix + t for t in texts[k:k + BATCH]]},
                            timeout=300)
             r.raise_for_status()
             got = r.json().get("embeddings") or []
@@ -114,6 +116,25 @@ def _trim(chosen: list[int], groups: dict[int, list[int]], limit: int) -> list[i
     return [i for v in by_group.values() for i in v][:limit]
 
 
+def _best_agglomerative(X: np.ndarray, max_clusters: int) -> np.ndarray:
+    """Pick the number of groups that separates them best (highest cosine silhouette), instead of a fixed
+    fraction of the signals — a fixed count forces unrelated problems into one group on small sets."""
+    from sklearn.cluster import AgglomerativeClustering
+    from sklearn.metrics import silhouette_score
+    hi = min(max_clusters, len(X) - 1)
+    best, best_score = None, -2.0
+    for n in range(2, max(2, hi) + 1):
+        labels = AgglomerativeClustering(n_clusters=n, linkage="ward").fit_predict(X)  # X is unit-normalized
+        if len(set(labels)) < 2:
+            continue
+        sc = silhouette_score(X, labels, metric="cosine")
+        if sc > best_score + 1e-6:
+            best, best_score = labels, sc
+    if best is None:
+        best = AgglomerativeClustering(n_clusters=2, linkage="ward").fit_predict(X)
+    return best
+
+
 def cluster(texts: list[str], max_clusters: int = 10) -> list[list[int]] | None:
     """Group texts by meaning. Returns lists of indices, largest first, or None (no embeddings)."""
     if len(texts) < 3:
@@ -121,9 +142,7 @@ def cluster(texts: list[str], max_clusters: int = 10) -> list[list[int]] | None:
     X = embed(texts)
     if X is None:
         return None
-    from sklearn.cluster import AgglomerativeClustering
-    n = max(2, min(max_clusters, len(texts) // 4 or 2))
-    labels = AgglomerativeClustering(n_clusters=n, metric="cosine", linkage="average").fit_predict(X)
+    labels = _best_agglomerative(X, max_clusters)
     out: dict[int, list[int]] = {}
     for i, lab in enumerate(labels):
         out.setdefault(int(lab), []).append(i)

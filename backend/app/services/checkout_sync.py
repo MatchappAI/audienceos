@@ -1,15 +1,25 @@
-"""Direct checkout sync (read-only): pull a product's orders from Stripe or Gumroad instead of a CSV export.
+"""Direct checkout sync (read-only): pull a product's orders from Stripe, Gumroad, Shopify or Lemon Squeezy
+instead of a CSV export.
 
 - Stripe: a *restricted* key with read access to Checkout Sessions, Payment Intents, Charges and Balance
   transactions. The product's sync ref is its Payment Link ID (plink_…). Fees come from the balance transaction;
   the channel comes from client_reference_id (add ?client_reference_id=<channel> to the Payment Link URL) or
   metadata.utm_source.
 - Gumroad: an access token from Settings → Advanced → Applications. The sync ref is the Gumroad product ID.
+- Shopify: an Admin API access token from a custom app with only the read_orders scope. The sync ref is
+  "<store>.myshopify.com/<product ID>"; only that product's line items (and their refunds) are counted, and the
+  channel comes from utm_source on the landing page, else the order's source. Payment fees aren't in Shopify's
+  order data, so they're left blank (import them, or accept the "fees missing" warning).
+- Lemon Squeezy: an API key (Settings → API). The sync ref is the product ID; orders are matched on their first
+  item's product. Fees aren't exposed per order, so they're left blank.
 
 Keys are kept in the macOS Keychain and only ever sent to the provider's own API host. Re-syncing is safe:
 orders are matched on their provider ID, and refunds/fees on already-imported orders are updated.
 """
 from datetime import datetime, timezone
+
+import re
+from urllib.parse import parse_qs, urlparse
 
 import httpx
 
@@ -98,7 +108,95 @@ def gumroad_orders(token: str, product_id: str) -> list[dict]:
     return out
 
 
-PROVIDERS = {"stripe": ("stripe_api_key", stripe_orders), "gumroad": ("gumroad_access_token", gumroad_orders)}
+SHOPIFY_API_VERSION = "2025-07"
+_SHOP_RE = re.compile(r"^([a-z0-9][a-z0-9-]*\.myshopify\.com)/(\d+)$")
+
+
+def parse_shopify_ref(ref: str) -> tuple[str, str]:
+    m = _SHOP_RE.match(ref.strip().lower().removeprefix("https://").removeprefix("http://"))
+    if not m:
+        raise SyncError("Shopify needs '<store>.myshopify.com/<product ID>' (the product ID is the number at the end "
+                        "of the product's admin URL).")
+    return m.group(1), m.group(2)
+
+
+def _utm(url: str | None) -> str | None:
+    if not url:
+        return None
+    q = parse_qs(urlparse(url if "://" in url else "https://x" + (url if url.startswith("/") else "/" + url)).query)
+    return (q.get("utm_source") or [None])[0]
+
+
+def shopify_orders(token: str, ref: str) -> list[dict]:
+    shop, product_id = parse_shopify_ref(ref)  # the token only ever goes to a *.myshopify.com host
+    out = []
+    url = f"https://{shop}/admin/api/{SHOPIFY_API_VERSION}/orders.json"
+    params: dict | None = {"status": "any", "limit": "250",
+                           "fields": "id,created_at,currency,line_items,refunds,source_name,landing_site,financial_status"}
+    with _client(headers={"X-Shopify-Access-Token": token}) as c:
+        for _ in range(MAX_PAGES):
+            r = c.get(url, params=params)
+            if r.status_code in (401, 403):
+                raise SyncError("Shopify rejected the token. Use an Admin API access token from a custom app with the "
+                                "read_orders scope.")
+            if r.status_code >= 400:
+                raise SyncError(f"Shopify error {r.status_code}.")
+            for o in r.json().get("orders", []):
+                items = [li for li in o.get("line_items", []) if str(li.get("product_id")) == product_id]
+                if not items or o.get("financial_status") in ("pending", "voided", "authorized"):
+                    continue
+                ids = {li["id"] for li in items}
+                amount = sum(float(li.get("price") or 0) * int(li.get("quantity") or 1) - float(li.get("total_discount") or 0)
+                             for li in items)
+                refunded = sum(float(rl.get("subtotal") or 0) for rf in o.get("refunds", [])
+                               for rl in rf.get("refund_line_items", []) if rl.get("line_item_id") in ids)
+                out.append({"order_ref": str(o["id"]), "date": (o.get("created_at") or "")[:10] or None,
+                            "amount": round(amount, 2), "refunded_amount": round(min(refunded, amount), 2), "fee": None,
+                            "channel": _utm(o.get("landing_site")) or o.get("source_name") or None,
+                            "currency": (o.get("currency") or "").lower() or None})
+            nxt = r.links.get("next", {}).get("url")
+            if not nxt:
+                break
+            if urlparse(nxt).hostname != shop:
+                raise SyncError("Shopify returned an unexpected pagination link.")
+            url, params = nxt, None
+    return out
+
+
+LEMON_API = "https://api.lemonsqueezy.com/v1"
+
+
+def lemonsqueezy_orders(key: str, product_id: str) -> list[dict]:
+    out = []
+    with _client(headers={"Authorization": f"Bearer {key}", "Accept": "application/vnd.api+json"}) as c:
+        for page in range(1, MAX_PAGES + 1):
+            r = c.get(f"{LEMON_API}/orders", params={"page[size]": "100", "page[number]": str(page)})
+            if r.status_code in (401, 403):
+                raise SyncError("Lemon Squeezy rejected the API key. Create one in Lemon Squeezy → Settings → API.")
+            if r.status_code >= 400:
+                raise SyncError(f"Lemon Squeezy error {r.status_code}.")
+            body = r.json()
+            for o in body.get("data", []):
+                a = o.get("attributes") or {}
+                if str((a.get("first_order_item") or {}).get("product_id")) != str(product_id).strip():
+                    continue
+                if a.get("status") not in ("paid", "refunded", "partial_refund"):
+                    continue
+                out.append({"order_ref": str(o["id"]), "date": (a.get("created_at") or "")[:10] or None,
+                            "amount": round((a.get("total") or 0) / 100, 2),
+                            "refunded_amount": round((a.get("refunded_amount") or 0) / 100, 2), "fee": None,
+                            "channel": None, "currency": (a.get("currency") or "").lower() or None})
+            last = ((body.get("meta") or {}).get("page") or {}).get("lastPage") or page
+            if page >= last:
+                break
+    return out
+
+
+PROVIDERS = {"stripe": ("stripe_api_key", stripe_orders), "gumroad": ("gumroad_access_token", gumroad_orders),
+             "shopify": ("shopify_access_token", shopify_orders), "lemonsqueezy": ("lemonsqueezy_api_key", lemonsqueezy_orders)}
+NAMES = {"stripe": "Stripe", "gumroad": "Gumroad", "shopify": "Shopify", "lemonsqueezy": "Lemon Squeezy"}
+KEY_LABEL = {"stripe": "Stripe restricted key", "gumroad": "Gumroad access token", "shopify": "Shopify Admin API token",
+             "lemonsqueezy": "Lemon Squeezy API key"}
 
 
 def sync_product(pid: str) -> dict:
@@ -108,11 +206,11 @@ def sync_product(pid: str) -> dict:
     secret, fetch = PROVIDERS[p["sync_provider"]]
     key = settings_store.get_secret(secret)
     if not key:
-        raise SyncError(f"Add your {'Stripe restricted key' if p['sync_provider'] == 'stripe' else 'Gumroad access token'} in Settings first.")
+        raise SyncError(f"Add your {KEY_LABEL[p['sync_provider']]} in Settings first.")
     try:
         orders = fetch(key, p["sync_ref"].strip())
     except httpx.HTTPError as e:
-        raise SyncError(f"Couldn't reach {p['sync_provider'].title()}: {type(e).__name__}") from None
+        raise SyncError(f"Couldn't reach {NAMES[p['sync_provider']]}: {type(e).__name__}") from None
     currencies = {o["currency"] for o in orders if o.get("currency")} - {"usd"}
     new = updated = 0
     with db.tx() as c:
@@ -132,5 +230,5 @@ def sync_product(pid: str) -> dict:
                   "warnings": [f"Some orders are in {', '.join(sorted(currencies)).upper()}; amounts are stored as-is, not converted."]
                   if currencies else []}
         db.update(c, "products", pid, {"last_synced_at": result["at"], "last_sync_json": result, "updated_at": db.now()})
-        db.log_activity(c, p["audience_id"], "sales", f"Synced {new} new orders from {p['sync_provider'].title()} for '{p['name']}'")
+        db.log_activity(c, p["audience_id"], "sales", f"Synced {new} new orders from {NAMES[p['sync_provider']]} for '{p['name']}'")
     return result

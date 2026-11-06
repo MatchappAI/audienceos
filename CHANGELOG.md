@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.4.0 — 2026-11-06 (all checkouts, models verified for real)
+
+- **Shopify and Lemon Squeezy checkout sync** (read-only), alongside Stripe and Gumroad.
+  - **Shopify** counts only this product's line items and refunds, and takes the channel from `utm_source` on the landing page. The token is only ever sent to your `*.myshopify.com` store.
+  - **Lemon Squeezy** matches each order on its first item.
+  - Neither reports payment fees per order. Those orders show the existing "fees missing" warning.
+- **Migration 004** rebuilds the products table so the new providers are allowed. The migration runner now switches foreign keys off for table rebuilds, so sales and costs are kept. A test covers this.
+- **Grouping by meaning is better.** Text sent to `nomic-embed-text` now gets the `clustering:` task prefix it was trained with. The number of groups is picked by separation quality (silhouette score, Ward linkage) rather than a fixed fraction. In a real test the gluten-free requests went from merged with equipment questions to their own group.
+- **Verified with the real models** (now installed): `qwen2.5vl:3b` described video frames and an image accurately, in about 70 s. Embedding sampling on 700 comments kept 6 rare gluten-free requests that likes-only sampling dropped (0).
+- Tests can no longer reach the real local AI engine, so results don't depend on which models are installed.
+
 ## 1.3.0 — 2026-11-06 (roadmap: money features, analysis extras, public repo)
 
 Now on GitHub: https://github.com/MatchappAI/audienceos (public), with CI (pytest + frontend build).

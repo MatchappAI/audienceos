@@ -64,7 +64,7 @@ def optimize_overview(include_demo: bool = False):
 
 
 class SyncConfig(BaseModel):
-    sync_provider: str | None = Field(default=None, pattern="^(stripe|gumroad)$")
+    sync_provider: str | None = Field(default=None, pattern="^(stripe|gumroad|shopify|lemonsqueezy)$")
     sync_ref: str | None = Field(default=None, max_length=200)
 
 
@@ -74,6 +74,11 @@ def set_sync(pid: str, body: SyncConfig):
     ref = (body.sync_ref or "").strip() or None
     if body.sync_provider == "stripe" and ref and not ref.startswith("plink_"):
         raise HTTPException(400, "Stripe Payment Link IDs start with plink_ (Stripe → Payment Links → the link → ID).")
+    if body.sync_provider == "shopify" and ref:
+        try:
+            ref = "/".join(checkout_sync.parse_shopify_ref(ref))
+        except checkout_sync.SyncError as e:
+            raise HTTPException(400, str(e))
     with db.tx() as c:
         db.update(c, "products", pid, {"sync_provider": body.sync_provider, "sync_ref": ref if body.sync_provider else None,
                                        "updated_at": db.now()})

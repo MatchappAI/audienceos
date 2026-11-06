@@ -12,8 +12,8 @@
    - Anthropic API key, for higher-quality analysis. Each run asks before sending data, and usage is billed to your account.
    - A free YouTube Data API key, for public comments and statistics.
    - A Brave Search API key, for automated competitor search.
-   - A **Stripe restricted key** (read-only: Checkout Sessions, Payment Intents, Charges, Balance transactions) or a **Gumroad access token**, to sync orders instead of importing CSVs. On each product → Checkout sync, enter the Payment Link ID (`plink_…`) or the Gumroad product ID.
-   - Settings → Optional local models: download `nomic-embed-text` (~270 MB) for meaning-based grouping of large comment sets, and a vision model if you analyse video frames.
+   - A **Stripe restricted key** (read-only: Checkout Sessions, Payment Intents, Charges, Balance transactions) a **Gumroad access token**, a **Shopify Admin API token** (custom app, `read_orders` only) or a **Lemon Squeezy API key**, to sync orders instead of importing CSVs. On each product → Checkout sync, enter the Payment Link ID (`plink_…`), Gumroad product ID, `store.myshopify.com/<product ID>` or Lemon Squeezy product ID.
+   - The optional local models (`nomic-embed-text`, `qwen2.5vl:3b`) are already downloaded and turned on.
 5. **Get creator consent** before importing their audience's comments, and before any external AI run on them.
 6. **Decide the deal options per creator.** Loss carry-forward and a minimum guarantee are off by default. Turn them on only if the signed contract says so.
 7. **Before the first payout run**, check each creator's contact email (the payout file needs it), pay outside AudienceOS, then record each payout.

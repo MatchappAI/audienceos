@@ -10,6 +10,8 @@ const KEYS: [string, string, string][] = [
   ["brave_api_key", "Brave Search API key", "Free tier available. Enables automated competitor search when web research is on."],
   ["stripe_api_key", "Stripe restricted key (read-only)", "Pulls orders for products sold through Stripe Payment Links. Create a restricted key with read access to Checkout Sessions, Payment Intents, Charges and Balance transactions. Sent only to api.stripe.com."],
   ["gumroad_access_token", "Gumroad access token", "Pulls orders for Gumroad products. Gumroad → Settings → Advanced → Applications → generate an access token. Sent only to api.gumroad.com."],
+  ["shopify_access_token", "Shopify Admin API token", "Pulls orders for Shopify products. Shopify admin → Settings → Apps → Develop apps → create an app with only the read_orders scope → install → copy the Admin API token. Sent only to your *.myshopify.com store."],
+  ["lemonsqueezy_api_key", "Lemon Squeezy API key", "Pulls orders for Lemon Squeezy products. Lemon Squeezy → Settings → API. Sent only to api.lemonsqueezy.com."],
 ];
 
 function Toggle({ on, onChange, label, help }: { on: boolean; onChange: (v: boolean) => void; label: string; help?: string }) {

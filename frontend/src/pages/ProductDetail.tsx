@@ -201,11 +201,14 @@ function CheckoutSync({ p, reload }: { p: any; reload: () => void }) {
       <p className="small muted">Pull orders straight from the checkout instead of a CSV. Read-only; keys live in Settings.</p>
       <div className="grid" style={{ gridTemplateColumns: "1fr", gap: 8 }}>
         <select value={f.sync_provider} onChange={(e) => setF({ ...f, sync_provider: e.target.value })} aria-label="Provider">
-          <option value="">Off — import CSV instead</option><option value="stripe">Stripe Payment Link</option><option value="gumroad">Gumroad</option></select>
+          <option value="">Off — import CSV instead</option><option value="stripe">Stripe Payment Link</option><option value="gumroad">Gumroad</option>
+          <option value="shopify">Shopify</option><option value="lemonsqueezy">Lemon Squeezy</option></select>
         {f.sync_provider && <input value={f.sync_ref} onChange={(e) => setF({ ...f, sync_ref: e.target.value })} aria-label="ID"
-          placeholder={f.sync_provider === "stripe" ? "Payment Link ID, plink_…" : "Gumroad product ID"} />}
+          placeholder={({ stripe: "Payment Link ID, plink_…", gumroad: "Gumroad product ID", shopify: "yourstore.myshopify.com/1234567890", lemonsqueezy: "Lemon Squeezy product ID" } as any)[f.sync_provider]} />}
       </div>
       {f.sync_provider === "stripe" && <p className="tiny faint mt">Channel comes from client_reference_id — add ?client_reference_id=instagram (etc.) to each link you share.</p>}
+      {f.sync_provider === "shopify" && <p className="tiny faint mt">Only this product's line items count. Channel comes from utm_source on the landing page. Shopify doesn't report payment fees per order, so add them by CSV if you need them.</p>}
+      {f.sync_provider === "lemonsqueezy" && <p className="tiny faint mt">Orders are matched on their first item. Lemon Squeezy doesn't report fees or channels per order.</p>}
       <div className="row mt">
         {dirty && <button className="btn primary sm" onClick={save} disabled={act.busy}>Save</button>}
         {!dirty && p.sync_provider && <button className="btn primary sm" onClick={sync} disabled={act.busy}>{act.busy ? "Syncing…" : "Sync now"}</button>}

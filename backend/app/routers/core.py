@@ -35,7 +35,7 @@ def system():
     return {"providers": providers.status_all(), "active_provider": settings_store.get("ai_provider"),
             "media": {**media.status(), "ocr": ocr.available()}, "settings": settings_store.get_all(),
             "data_dir": str(config.DATA_DIR),
-            "version": "1.3.0"}
+            "version": "1.4.0"}
 
 
 class SettingsIn(BaseModel):

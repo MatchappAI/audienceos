@@ -1,5 +1,18 @@
 # Testing
 
+## Session 5 — 2026-11-06 (v1.4.0)
+
+**Automated: 82 tests pass.** New tests cover Shopify (only this product's items counted, partial refunds, `utm_source` channel, rejects non-myshopify hosts, follows pagination on the same host, pending orders skipped), Lemon Squeezy (product match, pagination, refunds, non-USD warning), and migration 004 keeping sales rows during the table rebuild. Tests are now pinned to an unreachable AI-engine address.
+
+**Real models (scratch server, port 8761):**
+- `qwen2.5vl:3b`: the demo video's 2 frames and an extracted image were described accurately ("DEMO VIDEO" in white on beige), in about 70 s. OCR also read "DEMO VIDEO".
+- `nomic-embed-text`, sampling: 700 synthetic comments (560 loud starter/loaf, 110 equipment, 30 gluten-free with ≤5 likes). The 120-comment sample kept 6 gluten-free comments; likes-only sampling kept 0. Took about 33 s.
+- `nomic-embed-text`, grouping: before the fix, gluten-free merged with equipment questions; after the prefix + silhouette/Ward change, it forms its own group.
+
+**Live app:** restarted on 1.4.0, with the database backed up first. Migration 004 applied.
+
+**Still not tested live:** a real Stripe, Gumroad, Shopify or Lemon Squeezy account (no keys on this Mac).
+
 ## Session 4 — 2026-11-06 (v1.3.0)
 
 **Automated: 79 tests pass** (59 → 79), on this Mac and in GitHub Actions CI (Ubuntu, where OCR is skipped).

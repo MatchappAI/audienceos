@@ -163,3 +163,96 @@ def test_gumroad_sync_and_auth_error(client, monkeypatch):
         assert "tok_fake" not in json.dumps(r.json())
     finally:
         settings_store.set_secret("gumroad_access_token", None)
+
+
+def test_shopify_sync_counts_only_this_product(client, monkeypatch):
+    a, org, p = _creator(client, "ShopCo")
+    assert client.put(f"/api/products/{p['id']}/sync", json={"sync_provider": "shopify", "sync_ref": "evil.com/1"}).status_code == 400
+    client.put(f"/api/products/{p['id']}/sync", json={"sync_provider": "shopify", "sync_ref": "https://Maya-Bakes.myshopify.com/555"})
+    assert client.get(f"/api/products/{p['id']}").json()["sync_ref"] == "maya-bakes.myshopify.com/555"
+    settings_store.set_secret("shopify_access_token", "shpat_fake")
+    seen = []
+
+    def handler(req):
+        seen.append(req.url.host)
+        assert req.headers["x-shopify-access-token"] == "shpat_fake"
+        if "page_info" in str(req.url):
+            return httpx.Response(200, json={"orders": [
+                {"id": 3, "created_at": "2026-11-03T00:00:00Z", "currency": "USD", "financial_status": "pending",
+                 "line_items": [{"id": 30, "product_id": 555, "price": "40.00", "quantity": 1}]}]})
+        return httpx.Response(200, headers={"link": '<https://maya-bakes.myshopify.com/admin/api/2025-07/orders.json?page_info=abc>; rel="next"'},
+                              json={"orders": [
+            {"id": 1, "created_at": "2026-11-01T00:00:00Z", "currency": "USD", "financial_status": "paid",
+             "landing_site": "/products/kit?utm_source=instagram", "source_name": "web",
+             "line_items": [{"id": 10, "product_id": 555, "price": "40.00", "quantity": 2, "total_discount": "5.00"},
+                            {"id": 11, "product_id": 999, "price": "100.00", "quantity": 1}],
+             "refunds": [{"refund_line_items": [{"line_item_id": 10, "subtotal": 37.5}, {"line_item_id": 11, "subtotal": 100}]}]},
+            {"id": 2, "created_at": "2026-11-02T00:00:00Z", "currency": "USD", "financial_status": "paid", "source_name": "web",
+             "line_items": [{"id": 20, "product_id": 999, "price": "100.00", "quantity": 1}]}]})
+    try:
+        monkeypatch.setattr(checkout_sync, "_transport", httpx.MockTransport(handler))
+        res = client.post(f"/api/products/{p['id']}/sync").json()
+        assert res["result"]["new"] == 1  # order 2 is another product, order 3 is pending
+        s = res["product"]["sales"][0]
+        assert s["amount"] == 75.0 and s["refunded_amount"] == 37.5 and s["channel"] == "instagram" and s["fee"] is None
+        assert set(seen) == {"maya-bakes.myshopify.com"}
+    finally:
+        settings_store.set_secret("shopify_access_token", None)
+
+
+def test_lemonsqueezy_sync(client, monkeypatch):
+    a, org, p = _creator(client, "LemonCo")
+    client.put(f"/api/products/{p['id']}/sync", json={"sync_provider": "lemonsqueezy", "sync_ref": "77"})
+    settings_store.set_secret("lemonsqueezy_api_key", "ls_fake")
+
+    def handler(req):
+        page = int(req.url.params["page[number]"])
+        data = [{"id": "101", "attributes": {"first_order_item": {"product_id": 77}, "status": "paid", "total": 2900,
+                                             "refunded_amount": 0, "currency": "USD", "created_at": "2026-11-01T00:00:00Z"}},
+                {"id": "102", "attributes": {"first_order_item": {"product_id": 78}, "status": "paid", "total": 999}}] if page == 1 else [
+               {"id": "103", "attributes": {"first_order_item": {"product_id": 77}, "status": "refunded", "total": 2900,
+                                            "refunded_amount": 2900, "currency": "EUR", "created_at": "2026-11-02T00:00:00Z"}},
+               {"id": "104", "attributes": {"first_order_item": {"product_id": 77}, "status": "pending", "total": 2900}}]
+        return httpx.Response(200, json={"data": data, "meta": {"page": {"lastPage": 2}}})
+    try:
+        monkeypatch.setattr(checkout_sync, "_transport", httpx.MockTransport(handler))
+        res = client.post(f"/api/products/{p['id']}/sync").json()
+        assert res["result"]["new"] == 2 and res["product"]["pnl"]["refunds"] == 29
+        assert any("EUR" in w for w in res["result"]["warnings"])
+    finally:
+        settings_store.set_secret("lemonsqueezy_api_key", None)
+
+
+def test_products_rebuild_keeps_sales(tmp_path):
+    """Migration 004 rebuilds the products table; child rows must survive (foreign keys off during the rebuild)."""
+    import sqlite3
+    from app import db
+    path = tmp_path / "m.db"
+    c = db.connect(path)
+    c.execute("CREATE TABLE schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT NOT NULL)")
+    c.commit()
+    c.close()
+    for f in sorted(db.MIGRATIONS_DIR.glob("*.sql")):  # apply up to 003, then add data, then 004+
+        if f.stem >= "004":
+            break
+        c = db.connect(path)
+        c.executescript("BEGIN;\n" + f.read_text() + "\nCOMMIT;")
+        c.execute("INSERT INTO schema_migrations VALUES (?, ?)", (f.stem, "x"))
+        c.commit()
+        c.close()
+    c = db.connect(path)
+    c.execute("INSERT INTO workspaces VALUES ('ws','w','x')")
+    c.execute("INSERT INTO organizations (id, workspace_id, name, created_at, updated_at) VALUES ('o','ws','O','x','x')")
+    aud_cols = {r[1] for r in c.execute("PRAGMA table_info(audiences)")}
+    assert {"id", "organization_id", "name"} <= aud_cols
+    c.execute("INSERT INTO audiences (id, organization_id, name, created_at, updated_at) VALUES ('a','o','A','x','x')")
+    c.execute("INSERT INTO products (id, audience_id, name, created_at, updated_at, sync_provider) VALUES ('p','a','P','x','x','stripe')")
+    c.execute("INSERT INTO product_sales (id, product_id, order_ref, amount, created_at) VALUES ('s','p','o1',10,'x')")
+    c.commit()
+    c.close()
+    db.migrate(path)
+    c = sqlite3.connect(path)
+    assert c.execute("SELECT COUNT(*) FROM product_sales").fetchone()[0] == 1
+    assert c.execute("SELECT sync_provider FROM products").fetchone()[0] == "stripe"
+    c.execute("UPDATE products SET sync_provider='shopify'")  # new value allowed
+    c.commit()

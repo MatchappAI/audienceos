@@ -50,7 +50,19 @@ def migrate(path: Path | None = None) -> list[str]:
         for f in sorted(MIGRATIONS_DIR.glob("*.sql")):
             if f.stem in done:
                 continue
-            c.executescript("BEGIN;\n" + f.read_text() + "\nCOMMIT;")
+            sql = f.read_text()
+            # Table rebuilds (SQLite can't alter a CHECK) must run with foreign keys off, or dropping the old
+            # table would cascade-delete child rows. The pragma only takes effect outside a transaction.
+            fk_off = "-- requires: foreign_keys_off" in sql
+            if fk_off:
+                c.execute("PRAGMA foreign_keys = OFF")
+            try:
+                c.executescript("BEGIN;\n" + sql + "\nCOMMIT;")
+                if fk_off and c.execute("PRAGMA foreign_key_check").fetchall():
+                    raise RuntimeError(f"Migration {f.stem} left broken foreign keys")
+            finally:
+                if fk_off:
+                    c.execute("PRAGMA foreign_keys = ON")
             c.execute("INSERT INTO schema_migrations VALUES (?, ?)", (f.stem, now()))
             c.commit()
             applied.append(f.stem)
