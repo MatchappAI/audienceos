@@ -1,5 +1,22 @@
 # Testing
 
+## Session 4 — 2026-11-06 (v1.3.0)
+
+**Automated: 79 tests pass** (59 → 79), on this Mac and in GitHub Actions CI (Ubuntu, where OCR is skipped).
+
+| Area | What was checked |
+|---|---|
+| Loss carry-forward | Default per-product floor vs deal-wide offset; a deal-wide loss is carried forward and nothing is owed |
+| Minimum guarantee | Completed-month counting (month-end edge cases), cap at guaranteed months, recouped once earned share exceeds it |
+| Payout file / PDF / portal | Wise-column CSV with the right balance; PDF is valid; portal escapes HTML, has no scripts, and is served with a strict CSP; fingerprint is stable and changes with the numbers |
+| Next tests | Price and channel suggestions from real sales; a suggestion's prefill creates a valid experiment; the price suggestion disappears once a second price has been tested |
+| Checkout sync | Stripe (pagination, unpaid sessions skipped, fees, refunds, channel from client_reference_id or metadata) and Gumroad, both against mocked APIs; re-sync is idempotent; auth errors never echo the key |
+| OCR / embeddings / model pulls | See `backend/tests/test_analysis_extras.py`. OCR was verified for real on this Mac (rendered PNG and image-only PDF); embed and pull calls are mocked |
+
+**Live, scratch server (port 8761, separate data folder):** created a creator, launched a $29 product, added 7 orders, a $40 cost and a 70/30 contribution deal with a $100/month guarantee from Aug 1. Results: earned $98.42 (= ($203 − $22.40 − $40) × 70%), plus a $201.58 guarantee top-up for 3 months, for $300 owed. These figures matched in the payout CSV, the PDF and the portal. Screens checked: product page (Next tests, Checkout sync), creator page (deal terms, PDF, Creator view), Creators & Revenue (Payouts due), Settings (new keys, model downloads, OCR status). Two display bugs were found and fixed: "7.0 orders" and a truncated sync dropdown.
+
+**Not tested live:** a real Stripe/Gumroad account (no keys on this Mac; the mapping follows the providers' API docs and was tested against mocks), and a real `nomic-embed-text` or vision-model download (not pulled, to avoid multi-GB downloads without asking).
+
 ## Session 3 — 2026-11-06 (v1.2.0)
 
 Run on a **separate copy** (port 8761, scratch data folder) so the real `~/AudienceOS/data` was not touched. Driven by headless Chrome (puppeteer-core), clicking the real UI.

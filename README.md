@@ -20,8 +20,21 @@ To rebuild from source after code changes:
 
 ```sh
 cd ~/AudienceOS/frontend && npm install && npm run build      # type-checks, then builds to frontend/dist
-cd ~/AudienceOS/backend && .venv/bin/python -m pytest          # 56 tests
+cd ~/AudienceOS/backend && .venv/bin/python -m pytest          # 79 tests
 ```
+
+### From a fresh clone
+
+`data/` and `runtime/` aren't in git. On a Mac with Python 3.12 and Node 22:
+
+```sh
+git clone https://github.com/MatchappAI/audienceos.git AudienceOS && cd AudienceOS
+python3.12 -m venv backend/.venv && backend/.venv/bin/pip install -r backend/requirements.txt
+(cd frontend && npm ci && npm run build)
+./start.sh            # opens http://127.0.0.1:8760
+```
+
+Without `runtime/ollama`, AudienceOS runs on the rules engine. For local AI, install [Ollama](https://ollama.com) and run `ollama pull qwen2.5:7b`, or point it at a running Ollama on `127.0.0.1:11434`. `backend/requirements.lock.txt` has the exact pinned versions.
 
 ## Launch
 

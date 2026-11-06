@@ -39,17 +39,8 @@ These changes matter for running the 3 pilots.
 
 ## Deferred, on purpose
 
-Ordered as in `ROADMAP.md`:
+As of 1.3.0, all the post-pilot money items and the local analysis items are built (see `CHANGELOG.md`). Still open, and why:
 
-- Direct checkout sync.
-- Payout export.
-- Loss carry-forward and minimum guarantees.
-- The optimization loop.
-- A read-only creator portal.
-- YouTube OAuth transcripts and Meta/TikTok business APIs.
-- OCR.
-- Embedding-based clustering for large comment sets.
-- A one-click vision model.
-- Self-service accounts and hosting.
-
-None of these is needed to prove the economics with 3 pilots.
+- YouTube OAuth transcripts and the Meta/TikTok business APIs need developer apps that you register and that the platforms review.
+- Shopify and Lemon Squeezy sync will be added when a pilot creator uses them (CSV works today).
+- Self-service accounts and hosting are deliberately held until the 3 pilots prove the economics.

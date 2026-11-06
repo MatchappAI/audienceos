@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.3.0 — 2026-11-06 (roadmap: money features, analysis extras, public repo)
+
+Now on GitHub: https://github.com/MatchappAI/audienceos (public), with CI (pytest + frontend build).
+
+**Money (Creators & Revenue, product page)**
+- **Deal options.** *Loss carry-forward*: losses on one product, or in an earlier period, are offset against later profit before the creator's share (deal-wide, cumulative). Off by default, so losses are still never charged to the creator. *Minimum guarantee*: a recoupable monthly minimum for each completed month since the deal start, optionally capped. Statements show earned share, guarantee top-up, entitlement and any loss carried forward.
+- **Payout file.** "Payouts due" on Creators & Revenue lists every creator with a balance owed. The CSV download uses Wise's batch-payment columns, and any bank can read it as a plain list. Demo creators are excluded, and missing emails are flagged.
+- **PDF statement** with approval and acknowledgement lines and a SHA-256 fingerprint. An unchanged statement always produces the same fingerprint.
+- **Creator view (read-only portal).** One self-contained HTML page per creator, covering earnings, statement, products, channels and payouts. It contains no scripts and is served with a strict CSP. Open it or download it to send.
+- **Next tests (optimization loop).** Rules-based suggestions on each launched product: tracking, offer rework, price test (+25% or −20% depending on refunds), the best channel or a second channel, refunds, margin, and pending revisions. Each one states its numbers and can prefill an experiment. `/api/optimize` compares launched products side by side.
+- **Checkout sync (read-only)** from Stripe Payment Links (restricted key) and Gumroad (access token). Re-syncing is safe, refunds and fees on existing orders are updated, and non-USD orders are flagged. Keys are stored in the Keychain and sent only to the provider's API host.
+
+**Analysis**
+- **OCR** for scanned PDFs and images, using Apple Vision through a small Swift helper that compiles on first use into `data/bin/`. When OCR is unavailable, the source shows an "OCR unavailable" note.
+- **Embedding sampling/clustering** with local `nomic-embed-text`. Large comment sets are sampled across topics, and signals beyond the clustering window attach to the nearest theme. Without the model it falls back to keyword grouping.
+- **One-click model downloads** in Settings for the vision models (`qwen2.5vl:3b`/`7b`) and `nomic-embed-text`, with layer-aware progress.
+
+**Fixed**
+- When the 8-item limit applied, the dashboard could drop a running analysis from Next actions. Running analyses are now always listed first.
+
 ## 1.2.0 — 2026-11-06 (new icon, end-to-end run, fixes)
 
 **New icon.** A blue rounded square with a white creator dot sending out arcs of audience dots. One gold dot marks the signal that pays. It's on the Desktop app (`AudienceOS.icns`; the stock applet `Assets.car` was removed so macOS uses it), and a simplified version is the sidebar mark and browser-tab icon. Sources and the generator script are in `docs/brand/`.
