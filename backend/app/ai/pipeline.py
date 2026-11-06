@@ -13,7 +13,7 @@ import logging
 
 from .. import db, jobs, settings_store
 from ..services import scoring
-from . import providers, rules, schemas
+from . import embeddings, providers, rules, schemas
 from .evidence import locate_quote, timestamp_before
 
 log = logging.getLogger("audienceos.pipeline")
@@ -57,7 +57,13 @@ def build_units(audience_id: str) -> tuple[list[dict], dict]:
                           "content_item_id": it["id"], "source_id": it["source_id"], "comment_id": None,
                           "platform": it["platform"], "date": it["published_at"], "author_ref": None, "voice": voice,
                           "title": it["title"]})
-    analyzed = comments[:MAX_COMMENTS]
+    analyzed, sampling = comments[:MAX_COMMENTS], None
+    if len(comments) > MAX_COMMENTS:
+        strat = embeddings.stratified_sample(comments, MAX_COMMENTS)
+        if strat:
+            analyzed, sampling = strat
+        else:
+            sampling = {"method": "likes_recency"}
     for cm in analyzed:
         units.append({"ref": f"C{len(units) + 1}", "kind": "comment", "text": cm["text"], "offset": 0,
                       "content_item_id": cm["content_item_id"], "source_id": cm["source_id"], "comment_id": cm["id"],
@@ -65,6 +71,7 @@ def build_units(audience_id: str) -> tuple[list[dict], dict]:
                       "voice": "audience", "likes": cm["likes"]})
     meta = {"content_items": len(items), "comments_total": len(comments), "comments_analyzed": len(analyzed),
             "duplicates_excluded": n_dups, "spam_excluded": n_spam, "frames_described": len(frames),
+            "comment_sampling": sampling,
             "frames": frames, "items": items}
     return units, meta
 
@@ -294,7 +301,15 @@ def stage_cluster(provider, audience, sigs, analysis_id):
                         parts[0]["signal_ids"] += left
                     clean.remove(t)
                     clean.extend(parts)
+            assigned = {i for t in clean for i in t["signal_ids"]}
             rest = [i for i in range(len(sigs)) if i not in assigned]
+            # The model reads at most 250 signals; attach the rest to the nearest theme by meaning (local embeddings).
+            if rest and clean:
+                near = embeddings.assign(clean, [s["summary"] for s in sigs], rest)
+                if near:
+                    for i, j in near.items():
+                        clean[j]["signal_ids"].append(i)
+                    rest = [i for i in rest if i not in near]
             if rest:
                 clean.append({"label": "Other signals", "description": "Signals that did not fit a theme.", "signal_ids": rest})
             themes = clean
@@ -420,7 +435,13 @@ def compute_unknowns(meta, audience_size, sigs, provider):
         u.append("No audience comments or messages were imported — problems are inferred from the creator's own content, "
                  "which is weaker evidence than what the audience says.")
     if meta["comments_total"] > meta["comments_analyzed"]:
-        u.append(f"Only the top {meta['comments_analyzed']} of {meta['comments_total']} comments (by likes/recency) were analyzed.")
+        smp = meta.get("comment_sampling") or {}
+        if smp.get("method") == "embedding":
+            u.append(f"{meta['comments_analyzed']} of {meta['comments_total']} comments were analyzed, sampled across "
+                     f"{smp.get('groups')} topic groups (local embeddings, most-liked first within each group).")
+        else:
+            u.append(f"Only the top {meta['comments_analyzed']} of {meta['comments_total']} comments (by likes/recency) were "
+                     "analyzed. Download the embedding model in Settings to sample across every topic instead.")
     if not audience_size:
         u.append("Audience size unknown — add follower/subscriber counts to channels to size scenarios.")
     if not any(s["intent_level"] in ("verified_purchase", "existing_spending") for s in sigs):

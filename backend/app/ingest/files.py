@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 
 from .. import config, db
 from ..ai import providers
-from . import media, store
+from . import media, ocr, store
 
 log = logging.getLogger("audienceos.files")
 
@@ -65,23 +65,64 @@ def import_text(c, source, path: Path, kind: str):
     return {"obtained": [f"Text ({len(text.split()):,} words)"], "missing": [], "status": "ready"}
 
 
+MIN_OCR_CONFIDENCE = 0.3
+
+
+def _ocr_pages(path: Path, pages: list[int] | None) -> tuple[dict[int, str], str | None]:
+    """Run on-device OCR. Returns ({page: text}, note-if-unavailable-or-failed)."""
+    try:
+        res = ocr.recognize(path, pages)
+    except ocr.OCRUnavailable as e:
+        return {}, str(e)
+    except Exception as e:  # OCR is best-effort; never fail the whole import
+        log.warning("OCR failed for %s: %s", path.name, e)
+        return {}, f"Text recognition (OCR) failed: {e}"
+    out = {}
+    for r in res:
+        t = str(r.get("text") or "").strip()
+        if t and float(r.get("confidence") or 0) >= MIN_OCR_CONFIDENCE:
+            out[int(r.get("page") or 1)] = t
+    return out, None
+
+
 def import_pdf(c, source, path: Path):
     from pypdf import PdfReader
     reader = PdfReader(str(path))
-    pages = []
+    n = len(reader.pages)
+    by_page: dict[int, str] = {}
     for i, p in enumerate(reader.pages):
         t = (p.extract_text() or "").strip()
         if t:
-            pages.append(f"[page {i + 1}]\n{t}")
-    text = "\n\n".join(pages)
+            by_page[i + 1] = t
+    no_layer = [i for i in range(1, n + 1) if i not in by_page]
+    ocr_pages: dict[int, str] = {}
+    note = None
+    if no_layer:
+        ocr_pages, note = _ocr_pages(path, None if len(no_layer) == n else no_layer)
+        ocr_pages = {k: v for k, v in ocr_pages.items() if k in no_layer}
+    parts = []
+    for i in range(1, n + 1):
+        if i in by_page:
+            parts.append(f"[page {i}]\n{by_page[i]}")
+        elif i in ocr_pages:
+            parts.append(f"[page {i}, text recognized by OCR]\n{ocr_pages[i]}")
+    text = "\n\n".join(parts)
     if not text.strip():
-        return {"obtained": [f"{len(reader.pages)} pages"],
-                "missing": ["No text layer (this looks like a scanned PDF). Text recognition (OCR) is not available "
-                            "offline — export the document as text or a text-based PDF."], "status": "failed"}
+        missing = ["No text layer (this looks like a scanned PDF)."]
+        missing.append(note or "Text recognition (OCR) found no readable text on any page.")
+        return {"obtained": [f"{n} pages"], "missing": missing, "status": "failed"}
     store.add_content_item(c, source, text=text, title=source.get("title") or path.stem, kind="document",
-                           metadata={"pages": len(reader.pages)})
-    return {"obtained": [f"Text from {len(pages)} of {len(reader.pages)} pages"], "status": "ready",
-            "missing": [] if len(pages) == len(reader.pages) else [f"{len(reader.pages) - len(pages)} pages had no text layer"]}
+                           metadata={"pages": n, "ocr_pages": sorted(ocr_pages)})
+    obtained = [f"Text from {len(by_page)} of {n} pages"] if by_page else []
+    if ocr_pages:
+        obtained.append(f"Text recognized on this Mac (OCR) from {len(ocr_pages)} scanned page{'s' if len(ocr_pages) != 1 else ''} — "
+                        "check quotes against the original")
+    unread = len(no_layer) - len(ocr_pages)
+    missing = []
+    if unread:
+        missing.append(f"{unread} page{'s' if unread != 1 else ''} had no text layer"
+                       + (f" — {note}" if note else " and no readable text was recognized"))
+    return {"obtained": obtained, "status": "ready", "missing": missing}
 
 
 def import_docx(c, source, path: Path):
@@ -245,17 +286,26 @@ def import_media(c, source, path: Path, kind: str, progress):
 
 
 def import_image(c, source, path: Path):
-    cid, _ = store.add_content_item(c, source, text="", title=source.get("title") or path.stem, kind="image",
-                                    metadata={"filename": source.get("filename")})
+    texts, note = _ocr_pages(path, None)
+    text = texts.get(1, "")
+    cid, _ = store.add_content_item(c, source, text=text, title=source.get("title") or path.stem, kind="image",
+                                    metadata={"filename": source.get("filename"), "ocr": bool(text)})
     fid = db.new_id("fr")
     db.insert(c, "media_frames", {"id": fid, "content_item_id": cid, "timestamp_s": 0, "path": str(path),
                                   "created_at": db.now()})
     n, by = describe_frames(c, cid, [(fid, 0, path)])
+    obtained, missing = [], []
+    if text:
+        obtained.append(f"Text recognized on this Mac (OCR, {len(text.split()):,} words) — check quotes against the image")
+    else:
+        missing.append(note or "No readable text in the image (OCR)")
     if n:
-        return {"obtained": [f"Image description ({by})"], "missing": [], "status": "ready"}
-    return {"obtained": ["Image stored"], "missing": ["Image content not analyzed — no vision-capable model configured "
-                                                       "(optional; text recognition is not available offline)"],
-            "status": "partial"}
+        obtained.append(f"Image description ({by})")
+    else:
+        missing.append("Visual description — no vision-capable model configured (optional, see Settings)")
+    if not obtained:
+        obtained.append("Image stored")
+    return {"obtained": obtained, "missing": missing, "status": "ready" if (text or n) else "partial"}
 
 
 def import_file(c, source, path: Path, kind: str, progress):

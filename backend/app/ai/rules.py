@@ -67,19 +67,27 @@ def cluster_signals(signals: list[dict], max_clusters: int = 10) -> list[dict]:
     from sklearn.cluster import AgglomerativeClustering
     from sklearn.feature_extraction.text import TfidfVectorizer
     vec = TfidfVectorizer(stop_words="english", max_features=3000, ngram_range=(1, 2), min_df=1)
-    X = vec.fit_transform(texts)
-    if X.shape[1] == 0:
+    try:
+        X = vec.fit_transform(texts)
+    except ValueError:  # every word is a stop word
+        X = None
+    if X is None or X.shape[1] == 0:
         return [{"label": "All signals", "description": "No distinctive keywords.", "signal_ids": list(range(len(texts)))}]
-    n = max(2, min(max_clusters, len(texts) // 4 or 2))
-    labels = AgglomerativeClustering(n_clusters=n, metric="cosine", linkage="average").fit_predict(X.toarray())
     terms = vec.get_feature_names_out()
+    # Group by meaning with local embeddings when available; labels are still the group's top keywords.
+    from . import embeddings
+    groups = embeddings.cluster(texts, max_clusters)
+    desc = "Grouped by meaning with local embeddings; label = top keywords (not AI-written)."
+    if groups is None:
+        n = max(2, min(max_clusters, len(texts) // 4 or 2))
+        labels = AgglomerativeClustering(n_clusters=n, metric="cosine", linkage="average").fit_predict(X.toarray())
+        groups = [[i for i, l in enumerate(labels) if l == k] for k in sorted(set(labels))]
+        desc = "Keyword grouping (rules engine, not AI-written)."
     out = []
-    for k in sorted(set(labels)):
-        ids = [i for i, l in enumerate(labels) if l == k]
+    for ids in groups:
         centroid = X[ids].mean(axis=0).A1
         top = [terms[i] for i in centroid.argsort()[::-1][:3] if centroid[i] > 0]
-        out.append({"label": ", ".join(top) or "misc", "description": "Keyword grouping (rules engine, not AI-written).",
-                    "signal_ids": ids})
+        out.append({"label": ", ".join(top) or "misc", "description": desc, "signal_ids": ids})
     return sorted(out, key=lambda c: -len(c["signal_ids"]))
 
 
