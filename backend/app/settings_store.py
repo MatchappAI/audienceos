@@ -25,6 +25,8 @@ DEFAULTS = {
     "ai_provider": "ollama",               # ollama | anthropic | openai | rules
     "ollama_model": "qwen2.5:7b",
     "ollama_vision_model": "",
+    "embedding_model": "nomic-embed-text",  # local; used for large comment sets when downloaded
+    "use_embeddings": True,
     "anthropic_model": "claude-sonnet-5-5",
     "openai_model": "gpt-5-mini",
     "allow_external_ai": False,            # must be explicitly enabled before data leaves this Mac

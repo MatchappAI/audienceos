@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 from .. import cleanup, config, db, jobs, settings_store
 from ..ai import providers
-from ..ingest import media, platforms
+from ..ingest import media, ocr, platforms
 from ..security import classify_file, safe_filename
 from ..services import intel
 
@@ -33,7 +33,8 @@ def health():
 @r.get("/system")
 def system():
     return {"providers": providers.status_all(), "active_provider": settings_store.get("ai_provider"),
-            "media": media.status(), "settings": settings_store.get_all(), "data_dir": str(config.DATA_DIR),
+            "media": {**media.status(), "ocr": ocr.available()}, "settings": settings_store.get_all(),
+            "data_dir": str(config.DATA_DIR),
             "version": "1.2.0"}
 
 
@@ -69,28 +70,91 @@ def put_secret(name: str, body: SecretIn):
 
 class PullIn(BaseModel):
     model: str = Field(pattern=r"^[\w.\-:/]+$", max_length=80)
+    purpose: str | None = Field(default=None, pattern=r"^(analysis|vision|embedding)$")
+
+
+# One-click optional local models. Sizes are the Ollama library's download sizes (approximate).
+MODEL_PRESETS = [
+    {"model": "qwen2.5vl:3b", "purpose": "vision", "size": "~3.2 GB",
+     "title": "Vision model (recommended)", "detail": "Describes video frames and images on this Mac."},
+    {"model": "qwen2.5vl:7b", "purpose": "vision", "size": "~6 GB",
+     "title": "Vision model (higher quality)", "detail": "Better descriptions; slower and needs more memory."},
+    {"model": "nomic-embed-text", "purpose": "embedding", "size": "~270 MB",
+     "title": "Embedding model", "detail": "Groups large comment sets by meaning so quiet problems aren't missed."},
+]
+
+
+@r.get("/models/presets")
+def model_presets():
+    from ..ai import embeddings
+    try:
+        names = providers.OllamaProvider().installed_models()
+        running = True
+    except Exception:
+        names, running = [], False
+    active = {jobs.payload(j).get("model"): j["id"] for j in db.all_(
+        "SELECT * FROM jobs WHERE kind='pull_model' AND status IN ('queued','running')")}
+    out = []
+    for p in MODEL_PRESETS:
+        inst = embeddings.is_installed(p["model"], names)
+        in_use = (settings_store.get("ollama_vision_model") == p["model"] if p["purpose"] == "vision"
+                  else embeddings.is_installed(settings_store.get("embedding_model"), [p["model"]]))
+        out.append({**p, "installed": inst, "in_use": inst and in_use, "job_id": active.get(p["model"])})
+    return {"engine_running": running, "presets": out}
 
 
 @r.post("/models/pull")
 def pull_model(body: PullIn):
-    return {"job_id": jobs.enqueue("pull_model", payload={"model": body.model}, max_attempts=1,
+    existing = db.one("SELECT id FROM jobs WHERE kind='pull_model' AND status IN ('queued','running') AND "
+                      "json_extract(payload_json,'$.model')=?", (body.model,))
+    if existing:
+        return {"job_id": existing["id"]}
+    return {"job_id": jobs.enqueue("pull_model", payload={"model": body.model, "purpose": body.purpose}, max_attempts=1,
                                    message=f"Downloading {body.model}")}
+
+
+def _use_pulled_model(model: str, purpose: str | None) -> str:
+    """After a one-click download, switch the matching setting to it if nothing is configured yet."""
+    if purpose == "vision" and not settings_store.get("ollama_vision_model"):
+        settings_store.set_many({"ollama_vision_model": model})
+        return " and set as the vision model"
+    if purpose == "embedding":
+        settings_store.set_many({"embedding_model": model, "use_embeddings": True})
+        return " and turned on for large comment sets"
+    return ""
 
 
 @jobs.handler("pull_model")
 def _pull(job, progress):
     import httpx
-    model = jobs.payload(job)["model"]
-    with httpx.stream("POST", f"{config.OLLAMA_URL}/api/pull", json={"model": model}, timeout=None) as resp:
-        for line in resp.iter_lines():
-            if not line:
-                continue
-            d = json.loads(line)
-            if d.get("error"):
-                raise RuntimeError(d["error"])
-            if d.get("total"):
-                progress(d.get("completed", 0) / d["total"], f"Downloading {model}")
-    return {"message": f"{model} downloaded"}
+    p = jobs.payload(job)
+    model = p["model"]
+    layers: dict[str, tuple[int, int]] = {}  # digest → (completed, total); Ollama reports each layer separately
+    try:
+        with httpx.stream("POST", f"{config.OLLAMA_URL}/api/pull", json={"model": model}, timeout=None) as resp:
+            if resp.status_code >= 400:
+                resp.read()
+                raise RuntimeError(f"Download failed ({resp.status_code}): {resp.text[:200]}")
+            done = False
+            for line in resp.iter_lines():
+                if not line:
+                    continue
+                d = json.loads(line)
+                if d.get("error"):
+                    raise RuntimeError(d["error"])
+                if d.get("total") and d.get("digest"):
+                    layers[d["digest"]] = (int(d.get("completed") or 0), int(d["total"]))
+                    got, tot = sum(c for c, _ in layers.values()), sum(t for _, t in layers.values())
+                    progress(min(0.99, got / tot) if tot else 0, f"Downloading {model} ({got / 1e9:.1f} of {tot / 1e9:.1f} GB)")
+                elif d.get("status"):
+                    if d["status"] == "success":
+                        done = True
+                    progress(0.99 if layers else 0, f"{model}: {d['status']}")
+    except httpx.ConnectError as e:
+        raise RuntimeError("The local AI engine (Ollama) is not running. Restart AudienceOS with the launcher.") from e
+    if not done:
+        raise RuntimeError(f"The download of {model} ended before it finished. Try again.")
+    return {"message": f"{model} downloaded{_use_pulled_model(model, p.get('purpose'))}"}
 
 
 @r.get("/platforms")

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { del, put, post } from "../api";
 import { applyTheme, getTheme } from "../App";
-import { ErrorBox, JobLine, Loading, useApi, useAsync, useJobs, useToast } from "../components/ui";
+import { ErrorBox, JobLine, Loading, useApi, useAsync, useJobs, useJobsDone, useToast } from "../components/ui";
 
 const KEYS: [string, string, string][] = [
   ["anthropic_api_key", "Anthropic (Claude) API key", "Optional higher-quality analysis. Data is sent to Anthropic only when external AI is allowed and you confirm each run. Paid usage."],
@@ -40,6 +40,39 @@ function SecretRow({ name, label, help, saved, onSaved }: { name: string; label:
 
 // Model families that accept images. Text-only models (e.g. qwen2.5:7b) can't describe video frames.
 const VISION_RX = /(vl|llava|vision|moondream|minicpm-v|bakllava|gemma3|granite3\.2-vision|mistral-small3\.1)/i;
+
+function ModelPresets({ onDone }: { onDone: () => void }) {
+  const { data, reload } = useApi<any>("/api/models/presets");
+  const { jobs, kick } = useJobs();
+  const act = useAsync();
+  const toast = useToast();
+  useJobsDone(() => { reload(); onDone(); });
+  if (!data) return null;
+  const pull = async (p: any) => {
+    const r = await act.run(() => post("/api/models/pull", { model: p.model, purpose: p.purpose }));
+    if (r) { toast(`Downloading ${p.model}`); kick(); reload(); }
+  };
+  return (
+    <div className="card">
+      <h2>Optional local models</h2>
+      <p className="small muted">One click each. They run on this Mac; downloading needs the internet once.</p>
+      {!data.engine_running && <div className="notice warn small">The local AI engine isn't running. Restart AudienceOS with the launcher to download models.</div>}
+      {data.presets.map((p: any) => {
+        const job = jobs.find((j: any) => j.id === p.job_id) || (p.job_id ? { message: `Downloading ${p.model}`, progress: 0, status: "queued" } : null);
+        return (
+          <div key={p.model} className="row between mb" style={{ alignItems: "flex-start", gap: 12 }}>
+            <div><b className="small">{p.title}</b> <span className="mono tiny faint">{p.model} · {p.size}</span>
+              <div className="small muted">{p.detail}</div></div>
+            {job ? <JobLine job={job} />
+              : p.installed ? <span className={`badge ${p.in_use ? "good" : ""}`}>{p.in_use ? "in use" : "downloaded"}</span>
+              : <button className="btn sm" onClick={() => pull(p)} disabled={act.busy || !data.engine_running}>Download</button>}
+          </div>
+        );
+      })}
+      <ErrorBox error={act.error} />
+    </div>
+  );
+}
 
 export default function Settings() {
   const { data: sys, error, loading, reload } = useApi<any>("/api/system");
@@ -88,14 +121,17 @@ export default function Settings() {
               <select value={s.ollama_vision_model || ""} onChange={(e) => set("ollama_vision_model", e.target.value)}>
                 <option value="">None — frames are stored but not described</option>
                 {(ollama?.installed_models || []).filter((m: string) => VISION_RX.test(m) || m === s.ollama_vision_model).map((m: string) => <option key={m}>{m}</option>)}
-                {!(ollama?.installed_models || []).some((m: string) => VISION_RX.test(m)) && <option disabled value="__none">No vision-capable model installed — download qwen2.5vl:7b below</option>}
+                {!(ollama?.installed_models || []).some((m: string) => VISION_RX.test(m)) && <option disabled value="__none">No vision-capable model installed — download one below</option>}
               </select></label>
             <div className="row">
               <input value={pullModel} onChange={(e) => setPullModel(e.target.value)} style={{ maxWidth: 220 }} aria-label="Model to download" />
               {pj ? <JobLine job={pj} /> : <button className="btn sm" onClick={pull} disabled={act.busy}>Download model</button>}
             </div>
-            <p className="help">Downloads from the Ollama library (internet). Suggestions: qwen2.5:7b (default, ~4.7 GB), qwen2.5:3b (faster), llava:7b or qwen2.5vl:7b (vision).</p>
+            <p className="help">Downloads from the Ollama library (internet). Suggestions: qwen2.5:7b (default, ~4.7 GB), qwen2.5:3b (faster). Vision and embedding models are one click below.</p>
+            <Toggle on={s.use_embeddings !== false} onChange={(v) => set("use_embeddings", v)} label="Group large comment sets by meaning"
+              help="Uses the local embedding model (if downloaded) when there are more comments than one analysis can read, so the sample covers every topic." />
           </div>
+          <ModelPresets onDone={reload} />
           <div className="card">
             <h2>Privacy & internet</h2>
             <Toggle on={!!s.allow_external_ai} onChange={(v) => set("allow_external_ai", v)} label="Allow external AI providers"
@@ -105,12 +141,13 @@ export default function Settings() {
             <Toggle on={!!s.allow_web_research} onChange={(v) => set("allow_web_research", v)} label="Allow automated competitor research" help="Searches the web (needs a Brave Search key) and retrieves competitor pages." />
           </div>
           <div className="card">
-            <h2>Transcription</h2>
+            <h2>Transcription & text recognition</h2>
             <label className="field"><span>Whisper model (runs locally)</span>
               <select value={s.whisper_model} onChange={(e) => set("whisper_model", e.target.value)}>
                 {["tiny", "base", "small", "medium"].map((m) => <option key={m}>{m}</option>)}
               </select></label>
             <p className="small muted">FFmpeg: {sys.media.ffmpeg ? "ready" : "missing"} · Whisper “{sys.media.whisper_model}”: {sys.media.whisper_model_downloaded ? "downloaded" : "downloads on first use (internet)"}. Larger models are more accurate and slower.</p>
+            <p className="small muted">Text recognition (OCR) for scanned PDFs and images: {sys.media.ocr ? "ready — runs on this Mac with Apple Vision" : "unavailable — needs Apple's command-line tools (xcode-select --install)"}.</p>
           </div>
         </div>
         <div className="stack">

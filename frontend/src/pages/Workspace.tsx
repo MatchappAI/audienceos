@@ -216,7 +216,8 @@ function Overview({ a, reload }: { a: any; reload: () => void }) {
           {an.stats && Object.keys(an.stats).length > 0 && (
             <div className="grid g4 small">
               <div><div className="muted">Units analyzed</div><b>{num(an.stats.units)}</b></div>
-              <div><div className="muted">Comments analyzed</div><b>{num(an.stats.comments_analyzed)}</b> of {num(an.stats.comments_total)}</div>
+              <div><div className="muted">Comments analyzed</div><b>{num(an.stats.comments_analyzed)}</b> of {num(an.stats.comments_total)}
+                {an.stats.comment_sampling && <div className="tiny faint">{an.stats.comment_sampling.method === "embedding" ? `sampled across ${an.stats.comment_sampling.groups} topic groups` : "sampled by likes and recency"}</div>}</div>
               <div><div className="muted">Excluded</div><b>{num(an.stats.duplicates_excluded)}</b> duplicates · <b>{num(an.stats.spam_excluded)}</b> spam</div>
               <div><div className="muted">Unverifiable quotes discarded</div><b>{num(an.stats.rejected_quotes)}</b></div>
               <div><div className="muted">Signals</div><b>{num(an.stats.signals)}</b></div>
