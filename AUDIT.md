@@ -15,9 +15,9 @@ Status key: ✅ ready for pilots · 🟡 works with a stated limit · ⏸ deferr
 | 5 | **Product generation** | ✅ | 13 asset types drafted from the audience's words, a claim review, approval, and export to MD/HTML/DOCX. Landing pages carry a strict CSP. | Drafts need human editing for voice. Nothing publishes itself. |
 | 6 | **External checkout** | ✅ | The product stores the storefront and an https checkout link. Landing pages link to it. | No payment processing, by design (decision 10). |
 | 7 | **Launch** | ✅ | A 5-check gate, all assets approved, a named approver, then "mark launched". Material edits send the product back to draft, with a clear reason. | "Launched" is your attestation that you published it. AudienceOS doesn't publish. |
-| 8 | **Sales attribution** | ✅ | Order CSV import with a channel taken from `utm_source`/`channel`, duplicate protection, and a by-channel table. | Only as good as the tracking links used. No direct checkout sync yet. |
+| 8 | **Sales attribution** | ✅ | Order CSV import with a channel taken from `utm_source`/`channel`, duplicate protection, and a by-channel table. | Only as good as the tracking links used. Read-only order sync for Stripe Payment Links, Gumroad, Shopify and Lemon Squeezy (1.3–1.4); untested against real accounts until you add keys. |
 | 9 | **70/30 revenue share** | ✅ | Per-creator deals (configurable %, contribution or net-sales base), shared vs agency-only costs, payouts, balance owed, and a statement plus CSV. | **You must confirm the contract's base** (see `NEXT_STEPS.md` item 1). Losses are never charged to the creator. |
-| 10 | **Optimization** | ⏸ | You can compare experiments, see sales by channel, and reanalyze when new material arrives. | An automated "next test" loop is deferred (`ROADMAP.md`). |
+| 10 | **Optimization** | ✅ | You can compare experiments, see sales by channel, get rules-based next-test suggestions (1.3) and reanalyze when new material arrives. | Suggestions are rules, not a model; a human picks the next test. |
 
 ## What changed in this pass (2026-11-05, session 2)
 
@@ -39,7 +39,7 @@ These changes matter for running the 3 pilots.
 
 ## Deferred, on purpose
 
-As of 1.3.0, all the post-pilot money items and the local analysis items are built (see `CHANGELOG.md`). Still open, and why:
+As of 1.4.0, all the post-pilot money items, every checkout sync and the local analysis items are built (see `CHANGELOG.md`). Still open, and why:
 
 - YouTube OAuth transcripts and the Meta/TikTok business APIs need developer apps that you register and that the platforms review.
 - Self-service accounts and hosting are deliberately held until the 3 pilots prove the economics.
