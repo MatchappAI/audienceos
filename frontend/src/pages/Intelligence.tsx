@@ -227,7 +227,7 @@ function PerfTable({ rows }: { rows: any[] }) {
 export default function IntelligencePage() {
   const { id } = useParams();
   const nav = useNavigate();
-  const { data: auds, loading } = useApi<any[]>("/api/audiences");
+  const { data: auds, loading, error, reload } = useApi<any[]>("/api/audiences");
   const current = id || auds?.find((a) => a.last_analyzed_at)?.id || auds?.[0]?.id;
   const a = auds?.find((x) => x.id === current);
   return (
@@ -244,6 +244,7 @@ export default function IntelligencePage() {
         )}
       </div>
       {loading && <Loading />}
+      <ErrorBox error={error} onRetry={reload} />
       {auds && auds.length === 0 && <div className="card"><Empty title="No audiences yet" actions={<Link className="btn primary" to="/audiences?new=1">Add a creator</Link>} /></div>}
       {a && (
         <div className="stack">
