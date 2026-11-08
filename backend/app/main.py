@@ -1,6 +1,8 @@
 """AudienceOS local server. Binds to 127.0.0.1 only."""
 import logging
 import logging.handlers
+import os
+import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -30,7 +32,9 @@ async def lifespan(app):
 
 
 app = FastAPI(title="AudienceOS", lifespan=lifespan, docs_url=None, redoc_url=None)
-ALLOWED_HOSTS = {f"127.0.0.1:{config.PORT}", f"localhost:{config.PORT}", "testserver"}
+ALLOWED_HOSTS = {f"127.0.0.1:{config.PORT}", f"localhost:{config.PORT}"}
+if os.environ.get("AUDIENCEOS_TESTING") == "1":
+    ALLOWED_HOSTS.add("testserver")  # FastAPI TestClient's Host header; never allowed in the real app
 
 
 @app.middleware("http")
@@ -52,8 +56,11 @@ async def guard(request: Request, call_next):
 
 @app.exception_handler(Exception)
 async def unhandled(request: Request, exc: Exception):
-    log.exception("Unhandled error on %s", request.url.path)
-    return JSONResponse({"detail": f"Something went wrong: {str(exc)[:200]}"}, status_code=500)
+    error_id = uuid.uuid4().hex[:8]
+    log.exception("Unhandled error %s on %s", error_id, request.url.path)
+    # Never send raw exception text to the client (it can include paths or SQL); the log has the detail.
+    return JSONResponse({"detail": f"Something went wrong (error id {error_id}). Details are in the log."},
+                        status_code=500)
 
 
 app.include_router(core.r)

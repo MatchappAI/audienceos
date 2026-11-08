@@ -266,3 +266,25 @@ def test_dashboard_says_analysis_is_running(client):
     assert acts and acts[0].startswith("Analysis running") and not any("Run the first analysis" in t for t in acts)
     drain()
     client.delete(f"/api/audiences/{a['id']}")
+
+
+def test_unhandled_error_hides_exception_text(client):
+    from fastapi.routing import APIRoute
+
+    from app import main
+
+    def boom():
+        raise RuntimeError("secret /Users/someone/path SELECT * FROM t")
+
+    main.app.router.routes.insert(0, APIRoute("/api/__boom_test", boom, methods=["GET"]))
+    try:
+        from fastapi.testclient import TestClient
+        with TestClient(main.app, raise_server_exceptions=False) as c:
+            r = c.get("/api/__boom_test")
+        assert r.status_code == 500
+        detail = r.json()["detail"]
+        assert "error id" in detail
+        assert "secret" not in detail and "SELECT" not in detail
+    finally:
+        main.app.router.routes.pop(0)
+
