@@ -56,7 +56,7 @@ p { margin: 0 0 8px; }
 code { font-family: var(--mono); font-size: 12px; }
 
 /* layout */
-.app { display: grid; grid-template-columns: 228px 1fr; height: 100%; }
+.app { display: grid; grid-template-columns: 228px minmax(0, 1fr); height: 100%; }
 .side { background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 16px 10px; position: sticky; top: 0; height: 100vh; }
 .brand { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 15px; padding: 4px 10px 18px; }
 .brand-mark { width: 24px; height: 24px; flex: none; display: block; }
@@ -86,6 +86,16 @@ code { font-family: var(--mono); font-size: 12px; }
 .g3 { grid-template-columns: repeat(3, 1fr); }
 .g4 { grid-template-columns: repeat(4, 1fr); }
 .g-side { grid-template-columns: minmax(0, 1fr) 340px; }
+/* Grid cells may shrink below their content's natural width so form rows never spill under the next column. */
+.grid > * { min-width: 0; }
+@media (max-width: 1360px) {
+  .g-side, .g3 { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 1100px) {
+  .g4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* Wide inline form rows (sales, costs, competitors…) wrap instead of squeezing placeholders to a few letters. */
+  .card .grid[style*="grid-template-columns"] { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)) !important; }
+}
 .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .row.between { justify-content: space-between; }
 .row.top { align-items: flex-start; }
