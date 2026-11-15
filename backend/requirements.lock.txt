@@ -9,7 +9,7 @@ charset-normalizer==3.5.2
 click==8.5.0
 cloudpickle==3.1.2
 ctranslate2==4.8.5
-fastapi==0.162.0
+fastapi==0.162.5
 faster-whisper==1.2.1
 feedparser==6.0.14
 feedparser-sgmllib==2.1.0
