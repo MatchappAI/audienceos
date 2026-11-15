@@ -55,7 +55,7 @@ pyyaml==6.0.3
 reportlab==5.1.0
 scikit-learn==1.9.1
 scipy==1.18.1
-soupsieve==4.0.1
+soupsieve==4.1
 starlette==1.10.0
 threadpoolctl==3.8.0
 tokenizers==0.23.3
