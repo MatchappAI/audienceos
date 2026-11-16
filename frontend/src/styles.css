@@ -5,7 +5,7 @@
   --ink: #1d1d1f;
   --ink-2: #3a3a3c;
   --sub: #6e6e73;
-  --faint: #8e8e93;
+  --faint: #6e6e73; /* ≥4.5:1 on white and the page background (WCAG AA small text) */
   --line: #e5e5ea;
   --line-2: #d2d2d7;
   --accent: #0a66c2;
@@ -13,7 +13,7 @@
   --accent-soft: #e8f1fb;
   --good: #1a7f37;
   --good-soft: #e6f4ea;
-  --warn: #9a6700;
+  --warn: #875a00;
   --warn-soft: #fff4ce;
   --bad: #b42318;
   --bad-soft: #fde8e7;

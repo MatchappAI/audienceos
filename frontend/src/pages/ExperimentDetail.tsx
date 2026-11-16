@@ -27,7 +27,7 @@ function Setup({ x, reload }: { x: any; reload: () => void }) {
   const save = async () => {
     const body = { ...f, price: n(f.price), target_exposure: n(f.target_exposure), payment_fee_pct: n(f.payment_fee_pct) ?? 0,
       payment_fee_fixed: n(f.payment_fee_fixed) ?? 0, checkout_url: f.checkout_url || null, start_date: f.start_date || null, end_date: f.end_date || null,
-      criteria: crit.filter((c) => c.metric && c.value !== "" && c.value !== null).map((c) => ({ metric: c.metric, op: c.op || ">=", value: Number(c.value) })) };
+      criteria: crit.filter((c) => c.metric).map((c) => ({ metric: c.metric, op: c.op || ">=", value: c.value === "" || c.value === null || c.value === undefined ? "" : Number(c.value) })) };
     if (await act.run(() => patch(`/api/experiments/${x.id}`, body))) { toast("Experiment saved"); reload(); }
   };
   const t = (k: string, label: string, type = "text", ph = "") => (
