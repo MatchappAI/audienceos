@@ -222,7 +222,7 @@ function Overview({ a, reload }: { a: any; reload: () => void }) {
               <div><div className="muted">Unverifiable quotes discarded</div><b>{num(an.stats.rejected_quotes)}</b></div>
               <div><div className="muted">Signals</div><b>{num(an.stats.signals)}</b></div>
               <div><div className="muted">Problem themes</div><b>{num(an.stats.clusters)}</b></div>
-              <div><div className="muted">Opportunities</div><b>{num(an.stats.opportunities)}</b>{an.stats.opportunities_dropped ? ` (${an.stats.opportunities_dropped} dropped: no evidence)` : ""}</div>
+              <div><div className="muted">Opportunities</div><b>{num(an.stats.opportunities)}</b>{an.stats.opportunities_dropped ? ` (${an.stats.opportunities_dropped} dropped: no evidence)` : ""}{an.stats.opportunities_skipped ? <div className="tiny faint">not generated: too little evidence yet</div> : null}</div>
             </div>
           )}
           {an.unknowns?.length > 0 && (

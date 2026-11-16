@@ -344,6 +344,11 @@ def store_clusters(audience_id, analysis_id, sigs, themes) -> list[dict]:
     return out
 
 
+# Below this, the local model has too little to ground product ideas in; tested: 5 signals sent qwen2.5:7b into a
+# 30+ minute run-on at the opportunity stage. Accuracy over volume (decision 9): say so instead of guessing.
+MIN_SIGNALS_FOR_OPPORTUNITIES = 6
+
+
 def stage_opportunities(provider, audience, profile, clusters, analysis_id, audience_size):
     top = [c for c in clusters if c["label"] != "Other signals"][:8] or clusters[:8]
     ev_index, lines, ev_weight = [], [], {}
@@ -366,7 +371,7 @@ def stage_opportunities(provider, audience, profile, clusters, analysis_id, audi
             f"\n\nSTORED COMPETITOR RESEARCH\n{comp_txt}\n</source_material>\n\nPropose 3-5 opportunities.")
     rid = start_run(audience["id"], analysis_id, "6-7 · opportunities & scoring", provider, len(user))
     try:
-        res = provider.complete_json(OPP_SYS, user, schemas.OpportunityResult, max_tokens=6000)
+        res = provider.complete_json(OPP_SYS, user, schemas.OpportunityResult, max_tokens=4000)
     except Exception as e:
         finish_run(rid, "failed", error=str(e))
         raise
@@ -494,7 +499,8 @@ def analyze_audience(job, progress):
         progress(0.75, "Stage 4 · Measuring commercial intent")
         clusters = store_clusters(audience_id, analysis_id, sigs, themes)
         opp_ids, gaps, dropped = [], [], 0
-        if provider.is_llm and clusters:
+        thin = len(sigs) < MIN_SIGNALS_FOR_OPPORTUNITIES
+        if provider.is_llm and clusters and not thin:
             progress(0.8, "Stages 6–7 · Generating and scoring opportunities")
             opp_ids, gaps, dropped = stage_opportunities(provider, audience, profile, clusters, analysis_id, size)
         if profile is not None:
@@ -502,10 +508,15 @@ def analyze_audience(job, progress):
         stats = {k: v for k, v in meta.items() if k not in ("frames", "items", "audience_id")}
         stats.update({"units": len(units), "signals": len(sigs), "rejected_quotes": rejected,
                       "clusters": len(clusters), "opportunities": len(opp_ids), "opportunities_dropped": dropped})
+        unknowns = compute_unknowns(meta, size, sigs, provider)
+        if provider.is_llm and clusters and thin:
+            stats["opportunities_skipped"] = "not enough evidence"
+            unknowns = [f"Product ideas were not generated: only {len(sigs)} verified signal{'s' if len(sigs) != 1 else ''} "
+                        f"(at least {MIN_SIGNALS_FOR_OPPORTUNITIES} needed). Import more comments or messages, then reanalyze."] + list(unknowns or [])
         with db.tx() as c:
             db.update(c, "analyses", analysis_id, {
                 "status": "done", "finished_at": db.now(), "profile_json": json.dumps(profile) if profile else None,
-                "stats_json": stats, "unknowns_json": compute_unknowns(meta, size, sigs, provider)})
+                "stats_json": stats, "unknowns_json": unknowns})
             c.execute("UPDATE audiences SET last_analyzed_at=?, updated_at=? WHERE id=?", (db.now(), db.now(), audience_id))
             db.log_activity(c, audience_id, "analysis",
                             f"Analysis finished with {provider.label}: {len(sigs)} signals, {len(clusters)} problems, "

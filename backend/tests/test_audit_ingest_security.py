@@ -191,3 +191,71 @@ def test_frames_never_go_to_external_ai_during_import(monkeypatch):
     finally:
         settings_store.set_secret("anthropic_api_key", None)
         settings_store.set_many({"ai_provider": "ollama", "allow_external_ai": False})
+
+
+def _fake_llm(monkeypatch):
+    """A provider that claims to be a model but runs the rules engine for each stage (no network)."""
+    rules_p = providers.RulesProvider()
+
+    class FakeLLM(providers.RulesProvider):
+        is_llm = True
+        name = "fake"
+    monkeypatch.setattr(pipeline, "stage_profile", lambda *a, **k: None)
+    for fn in ("stage_extract", "stage_cluster"):
+        orig = getattr(pipeline, fn)
+        monkeypatch.setattr(pipeline, fn, lambda provider, *a, _o=orig, **k: _o(rules_p, *a, **k))
+    monkeypatch.setattr(providers, "get_provider", lambda name=None: FakeLLM())
+    called = []
+    monkeypatch.setattr(pipeline, "stage_opportunities", lambda *a, **k: called.append(1) or ([], [], 0))
+    return called
+
+
+def test_thin_evidence_skips_product_ideas_honestly(client, monkeypatch):
+    called = _fake_llm(monkeypatch)
+    a = client.post("/api/audiences", json={"org_name": "ThinCo"}).json()
+    client.post(f"/api/audiences/{a['id']}/sources/text", json={"as_comments": True,
+                "text": "My starter dies every week\nWhere can I buy a proofing box?"})
+    drain()
+    jobs.enqueue("analyze_audience", a["id"], payload={"provider": "fake"})
+    drain()
+    an = client.get(f"/api/audiences/{a['id']}/analyses").json()[0]
+    assert an["status"] == "done" and an["stats"]["opportunities_skipped"] == "not enough evidence"
+    assert called == []
+    intel = client.get(f"/api/audiences/{a['id']}/intelligence").json()
+    assert "Product ideas were not generated" in str(intel)
+
+
+def test_enough_evidence_still_generates(client, monkeypatch):
+    called = _fake_llm(monkeypatch)
+    a = client.post("/api/audiences", json={"org_name": "ThickCo"}).json()
+    many = "comment,likes\n" + "\n".join(f"{t} (week {i}),{i}" for i, t in enumerate([
+        "Where can I buy your sourdough course? I would pay for it", "My starter keeps dying and I don't know why",
+        "How much does the bread workshop cost?", "I already spent $200 on baking classes that did not help",
+        "I struggle to shape loaves, they always spread flat", "Is there a guide for high altitude baking?",
+        "I would pay for a live troubleshooting call", "Where can I buy a good proofing box?",
+        "My crumb is always dense, so frustrating", "Do you sell a starter kit?"])) + "\n"
+    client.post(f"/api/audiences/{a['id']}/sources/upload", files={"files": ("m.csv", many.encode(), "text/csv")},
+                data={"voice": "audience"})
+    drain()
+    jobs.enqueue("analyze_audience", a["id"], payload={"provider": "fake"})
+    drain()
+    n = db.scalar("SELECT COUNT(*) FROM signals WHERE audience_id=?", (a["id"],))
+    assert n >= pipeline.MIN_SIGNALS_FOR_OPPORTUNITIES and called == [1]
+
+
+def test_cancelling_analysis_closes_it(client):
+    a = client.post("/api/audiences", json={"org_name": "CancelAnCo"}).json()
+    with db.tx() as c:
+        db.insert(c, "analyses", {"id": "an_cancel_t", "audience_id": a["id"], "provider": "rules", "status": "running",
+                                  "started_at": db.now()})
+    jid = jobs.enqueue("analyze_audience", a["id"])
+    client.post(f"/api/jobs/{jid}/cancel")
+    assert db.scalar("SELECT status FROM analyses WHERE id='an_cancel_t'") == "failed"
+
+
+def test_progress_never_drops_a_new_stage_message():
+    jid = jobs.enqueue("t_progress")
+    p = jobs.Progress(jid)
+    p(0.75, "Stage 4")
+    p(0.8, "Stage 6")  # immediately after: used to be throttled away
+    assert db.scalar("SELECT message FROM jobs WHERE id=?", (jid,)) == "Stage 6"

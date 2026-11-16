@@ -39,11 +39,14 @@ class Progress:
     def __init__(self, job_id: str):
         self.job_id = job_id
         self._last = 0.0
+        self._msg: str | None = None
 
     def __call__(self, fraction: float, message: str | None = None):
-        if time.time() - self._last < 0.4 and fraction < 1:
+        # Throttle repeated updates, but never drop a new stage message (the UI would show the old stage for the
+        # whole of the next one).
+        if time.time() - self._last < 0.4 and fraction < 1 and message == self._msg:
             return
-        self._last = time.time()
+        self._last, self._msg = time.time(), message
         c = db.connect()
         try:
             c.execute("PRAGMA busy_timeout = 1500")
@@ -134,6 +137,13 @@ def cancel(job_id: str) -> None:
         j = c.execute("SELECT kind, status, ref_id FROM jobs WHERE id=?", (job_id,)).fetchone()
         c.execute("UPDATE jobs SET status='cancelled', message='Cancelled', finished_at=? "
                   "WHERE id=? AND status IN ('queued','running')", (db.now(), job_id))
+        if j and j[0] == "analyze_audience" and j[1] in ("queued", "running"):
+            # Close the analysis honestly, so the audience doesn't show "analysis running" forever.
+            aud = c.execute("SELECT audience_id FROM jobs WHERE id=?", (job_id,)).fetchone()[0]
+            c.execute("UPDATE ai_runs SET status='failed', finished_at=?, error='Cancelled' WHERE status='running' AND "
+                      "analysis_id IN (SELECT id FROM analyses WHERE audience_id=? AND status='running')", (db.now(), aud))
+            c.execute("UPDATE analyses SET status='failed', finished_at=?, unknowns_json=? WHERE audience_id=? AND status='running'",
+                      (db.now(), '["Cancelled before it finished"]', aud))
         if j and j[0] == "ingest_source" and j[1] in ("queued", "running") and j[2]:
             # Don't leave the source stuck on "Waiting"; it can be reprocessed.
             c.execute("UPDATE sources SET status='failed', status_detail='Cancelled — reprocess to try again' "
