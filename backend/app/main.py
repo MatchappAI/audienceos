@@ -18,6 +18,8 @@ from .services import assets, competitors  # noqa: F401
 handler = logging.handlers.RotatingFileHandler(config.LOGS_DIR / "audienceos.log", maxBytes=5_000_000, backupCount=3)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s",
                     handlers=[handler, logging.StreamHandler()])
+for _noisy in ("httpx", "httpcore"):  # httpx logs full request URLs at INFO, and some APIs take keys in the query string
+    logging.getLogger(_noisy).setLevel(logging.WARNING)
 log = logging.getLogger("audienceos")
 
 

@@ -11,6 +11,23 @@ def _head(path: Path) -> bytes:
         return f.read(8192)
 
 
+def relink_evidence(c, source_id: str) -> int:
+    """After a re-import, point earlier evidence back at the re-imported comment or content item holding its quote."""
+    n = 0
+    for eid, quote in c.execute("SELECT id, quote FROM evidence WHERE source_id=? AND comment_id IS NULL "
+                                "AND content_item_id IS NULL", (source_id,)).fetchall():
+        hit = c.execute("SELECT id FROM comments WHERE source_id=? AND instr(text, ?) > 0 LIMIT 1", (source_id, quote)).fetchone()
+        if hit:
+            c.execute("UPDATE evidence SET comment_id=? WHERE id=?", (hit[0], eid))
+            n += 1
+            continue
+        hit = c.execute("SELECT id FROM content_items WHERE source_id=? AND instr(text, ?) > 0 LIMIT 1", (source_id, quote)).fetchone()
+        if hit:
+            c.execute("UPDATE evidence SET content_item_id=? WHERE id=?", (hit[0], eid))
+            n += 1
+    return n
+
+
 @jobs.handler("ingest_source")
 def ingest_source(job, progress):
     p = jobs.payload(job)
@@ -60,6 +77,7 @@ def ingest_source(job, progress):
             "obtained_json": out.get("obtained", []), "missing_json": out.get("missing", []),
             "alternatives_json": out.get("alternatives", []),
             "status_detail": f"{n_items} content items, {n_comments} comments"})
+        relink_evidence(c, source["id"])
         db.log_activity(c, source["audience_id"], "source",
                         f"Imported '{(title or '')[:60]}' — {out['status']}")
         c.commit()

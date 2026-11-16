@@ -91,6 +91,10 @@ def review(provider, text: str) -> dict:
 
 
 SAFE_EXPR = re.compile(r"^[\w\s+\-*/().]+$")
+# Words JavaScript reserves: a calculator input can't be named one of these (the formula would not run).
+JS_RESERVED = set("""break case catch class const continue debugger default delete do else enum export extends false
+finally for function if import in instanceof let new null return static super switch this throw true try typeof var
+void while with yield await arguments eval undefined NaN Infinity""".split())
 
 
 def validate_calculator(spec: dict) -> dict:
@@ -99,6 +103,8 @@ def validate_calculator(spec: dict) -> dict:
         n = re.sub(r"\W", "_", str(i.get("name", "")).strip().lower())
         if not n or not re.match(r"^[a-z_]\w*$", n):
             continue
+        if n in JS_RESERVED:
+            n = n + "_"
         try:
             dflt = float(i.get("default") or 0)
         except ValueError:
@@ -109,7 +115,8 @@ def validate_calculator(spec: dict) -> dict:
     for o in spec.get("outputs", []):
         ex = str(o.get("expression", ""))
         idents = set(re.findall(r"[A-Za-z_]\w*", ex))
-        if SAFE_EXPR.match(ex) and idents <= allowed:
+        # No comments (// or /*) and no back-to-back operators like ** that the arithmetic grammar doesn't mean.
+        if SAFE_EXPR.match(ex) and idents <= allowed and not re.search(r"[*/]\s*[*/]", ex) and not (idents & JS_RESERVED):
             outs.append({"label": str(o.get("label") or "Result")[:80], "expression": ex})
     return {"inputs": names, "outputs": outs}
 

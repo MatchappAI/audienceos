@@ -57,11 +57,29 @@ def get_all() -> dict:
     return out
 
 
+def _check(k: str, v):
+    """Each setting keeps its default's type, so a string "false" can never switch on external AI."""
+    d = DEFAULTS[k]
+    if isinstance(d, bool):
+        if not isinstance(v, bool):
+            raise ValueError(f"Setting {k} must be true or false.")
+    elif isinstance(d, str):
+        if not isinstance(v, str) or len(v) > 200:
+            raise ValueError(f"Setting {k} must be text.")
+    elif k == "rubric":
+        if not isinstance(v, dict) or not v or not all(
+                isinstance(x, dict) and isinstance(x.get("weight"), (int, float)) and not isinstance(x.get("weight"), bool)
+                and 0 <= x["weight"] <= 1000 for x in v.values()):
+            raise ValueError("The rubric must list each criterion with a numeric weight.")
+
+
 def set_many(values: dict) -> None:
+    for k, v in values.items():
+        if k not in DEFAULTS:
+            raise ValueError(f"Unknown setting: {k}")
+        _check(k, v)
     with db.tx() as c:
         for k, v in values.items():
-            if k not in DEFAULTS:
-                raise ValueError(f"Unknown setting: {k}")
             c.execute("INSERT INTO settings (key, value_json) VALUES (?, ?) "
                       "ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json", (k, json.dumps(v)))
 

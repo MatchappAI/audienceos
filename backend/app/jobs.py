@@ -89,9 +89,11 @@ def run_one() -> bool:
         log.info("job %s cancelled", job["id"])
     except Exception as e:
         log.error("job %s failed: %s\n%s", job["id"], e, traceback.format_exc())
-        retry = job["attempts"] + 1 < job["max_attempts"] and getattr(e, "retryable", False)
         with db.tx() as c:
-            c.execute("UPDATE jobs SET status=?, error=?, message=?, finished_at=? WHERE id=?",
+            cancelled = (c.execute("SELECT status FROM jobs WHERE id=?", (job["id"],)).fetchone() or ["cancelled"])[0] == "cancelled"
+            retry = not cancelled and job["attempts"] + 1 < job["max_attempts"] and getattr(e, "retryable", False)
+            # A job the user cancelled stays cancelled, even if the work then errors out.
+            c.execute("UPDATE jobs SET status=?, error=?, message=?, finished_at=? WHERE id=? AND status != 'cancelled'",
                       ("queued" if retry else "failed", str(e)[:1000],
                        "Retrying" if retry else "Failed", None if retry else db.now(), job["id"]))
         fail = HANDLERS.get(job["kind"] + ":failed")
@@ -129,8 +131,13 @@ def stop_worker():
 
 def cancel(job_id: str) -> None:
     with db.tx() as c:
+        j = c.execute("SELECT kind, status, ref_id FROM jobs WHERE id=?", (job_id,)).fetchone()
         c.execute("UPDATE jobs SET status='cancelled', message='Cancelled', finished_at=? "
                   "WHERE id=? AND status IN ('queued','running')", (db.now(), job_id))
+        if j and j[0] == "ingest_source" and j[1] in ("queued", "running") and j[2]:
+            # Don't leave the source stuck on "Waiting"; it can be reprocessed.
+            c.execute("UPDATE sources SET status='failed', status_detail='Cancelled — reprocess to try again' "
+                      "WHERE id=? AND status IN ('pending','processing')", (j[2],))
 
 
 def payload(job: dict) -> dict:

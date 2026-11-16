@@ -92,8 +92,9 @@ def batches(units: list[dict]):
 def fmt_units(units):
     lines = []
     for u in units:
-        who = "AUDIENCE COMMENT" if u["kind"] == "comment" else f"CREATOR CONTENT ({u.get('title') or 'untitled'})"
-        lines.append(f"<unit ref=\"{u['ref']}\" type=\"{who}\">\n{u['text']}\n</unit>")
+        title = providers.defang(u.get("title") or "untitled").replace('"', "'")
+        who = "AUDIENCE COMMENT" if u["kind"] == "comment" else f"CREATOR CONTENT ({title})"
+        lines.append(f"<unit ref=\"{u['ref']}\" type=\"{who}\">\n{providers.defang(u['text'])}\n</unit>")
     return "<source_material>\n" + "\n".join(lines) + "\n</source_material>"
 
 
@@ -460,7 +461,7 @@ def analyze_audience(job, progress):
     audience_id = job["audience_id"]
     p = jobs.payload(job)
     provider = providers.require(providers.get_provider(p.get("provider")))
-    if provider.external and not settings_store.get("allow_external_ai"):
+    if provider.external and settings_store.get("allow_external_ai") is not True:
         raise providers.ProviderUnavailable("External AI is disabled in Settings.")
     audience, size = audience_context(audience_id)
     progress(0.03, "Collecting stored material")

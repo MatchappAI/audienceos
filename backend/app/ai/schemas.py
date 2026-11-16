@@ -1,7 +1,12 @@
 """Validated structured outputs for each AI stage."""
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel as _PydanticBase, ConfigDict, Field
+
+
+class BaseModel(_PydanticBase):
+    """Model output may not contain Infinity/NaN: they pass numeric bounds but break every JSON response."""
+    model_config = ConfigDict(allow_inf_nan=False)
 
 SignalType = Literal["question", "frustration", "unmet_need", "resource_request", "dislikes_existing_solution",
                      "repetitive_task", "desired_outcome"]

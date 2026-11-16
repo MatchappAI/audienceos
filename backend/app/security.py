@@ -2,6 +2,7 @@
 import ipaddress
 import re
 import socket
+import time
 import urllib.robotparser
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -85,6 +86,8 @@ def robots_allowed(url: str) -> bool:
             r = safe_get(base + "/robots.txt", max_bytes=512 * 1024, check_robots=False)
             if r.status == 200:
                 rp.parse(r.text.splitlines())
+            elif r.status >= 500:
+                return False  # RFC 9309: a server error on robots.txt means don't crawl for now (not cached; retry later)
             else:
                 rp = None  # no robots.txt => allowed
         except FetchError:
@@ -92,6 +95,16 @@ def robots_allowed(url: str) -> bool:
         _robots_cache[base] = rp
     rp = _robots_cache[base]
     return True if rp is None else rp.can_fetch(USER_AGENT, url)
+
+
+def _check_peer(resp) -> None:
+    """DNS-rebinding guard: check_url() vetted the name, but the connection resolves it again. Refuse the response
+    if the address actually connected to is private, before any of the body is read."""
+    ns = resp.extensions.get("network_stream")
+    addr = ns.get_extra_info("server_addr") if ns is not None else None
+    if addr and not _is_public_ip(addr[0]):
+        raise FetchError("This link points to a private or local network address, which is blocked for safety.",
+                         "private_address")
 
 
 def safe_get(url: str, *, max_bytes: int = config.MAX_PAGE_BYTES, check_robots: bool = True,
@@ -104,19 +117,30 @@ def safe_get(url: str, *, max_bytes: int = config.MAX_PAGE_BYTES, check_robots: 
     h = {"User-Agent": USER_AGENT, "Accept": accept or "text/html,application/xhtml+xml,application/xml,application/json,*/*;q=0.5"}
     h.update(headers or {})
     current = url
+    # Whole-download deadline (the httpx timeout is per read, so a server trickling bytes could hold the single
+    # background worker for hours). Large media gets proportionally longer.
+    deadline = time.monotonic() + max(60.0, max_bytes / 1_000_000 * 4)
     with httpx.Client(timeout=config.FETCH_TIMEOUT_S, follow_redirects=False) as client:
         for _ in range(6):
             check_url(current)
             try:
                 with client.stream("GET", current, headers=h, params=params) as resp:
                     params = None
+                    _check_peer(resp)
                     if resp.status_code in (301, 302, 303, 307, 308):
                         loc = resp.headers.get("location")
                         if not loc:
                             raise FetchError("Redirect without a destination.")
-                        current = urljoin(current, loc)
+                        nxt = urljoin(current, loc)
+                        if urlparse(nxt).hostname != urlparse(current).hostname:
+                            # Never forward API keys/tokens to a different host.
+                            h = {k: v for k, v in h.items() if k in ("User-Agent", "Accept")}
+                        current = nxt
                         continue
-                    declared = int(resp.headers.get("content-length") or 0)
+                    try:
+                        declared = int(resp.headers.get("content-length") or 0)
+                    except ValueError:
+                        declared = 0
                     if declared > max_bytes:
                         raise FetchError(f"The file is too large ({declared // 1_000_000} MB).", "too_large")
                     buf = bytearray()
@@ -124,6 +148,8 @@ def safe_get(url: str, *, max_bytes: int = config.MAX_PAGE_BYTES, check_robots: 
                         buf.extend(chunk)
                         if len(buf) > max_bytes:
                             raise FetchError("The download exceeded the size limit and was stopped.", "too_large")
+                        if time.monotonic() > deadline:
+                            raise FetchError("The website is sending data too slowly; the download was stopped.", "timeout")
                     return FetchResult(url, current, resp.status_code, resp.headers.get("content-type", ""),
                                        bytes(buf), dict(resp.headers))
             except httpx.TimeoutException:

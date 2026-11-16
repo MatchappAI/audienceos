@@ -3,6 +3,7 @@ import csv
 import io
 import json
 import logging
+import sys
 from pathlib import Path
 
 from bs4 import BeautifulSoup
@@ -125,8 +126,22 @@ def import_pdf(c, source, path: Path):
     return {"obtained": obtained, "status": "ready", "missing": missing}
 
 
+MAX_DOCX_UNPACKED = 200 * 1024 * 1024
+
+
 def import_docx(c, source, path: Path):
+    import zipfile
+
     import docx
+    try:
+        with zipfile.ZipFile(path) as z:
+            unpacked = sum(i.file_size for i in z.infolist())
+    except zipfile.BadZipFile:
+        return {"obtained": [], "missing": ["The Word file is damaged (not a valid .docx)."], "status": "failed"}
+    if unpacked > MAX_DOCX_UNPACKED or unpacked > 200 * max(1, path.stat().st_size):
+        return {"obtained": [], "missing": ["This Word file expands to an unusually large size, so it wasn't opened "
+                                            "(possible decompression bomb). Save it again from Word and re-import."],
+                "status": "failed"}
     d = docx.Document(str(path))
     parts = [p.text for p in d.paragraphs if p.text.strip()]
     for t in d.tables:
@@ -139,15 +154,32 @@ def import_docx(c, source, path: Path):
     return {"obtained": [f"Text ({len(text.split()):,} words)"], "missing": [], "status": "ready"}
 
 
+class _OneColumn(csv.excel):
+    delimiter = "\x1f"  # a single-column file: commas inside the text are part of the text
+
+
 def _table_records(path: Path) -> list[dict]:
-    raw = path.read_text(errors="replace")
+    raw = path.read_text(encoding="utf-8-sig", errors="replace")  # Excel / YouTube Studio exports start with a BOM
     dialect = csv.excel_tab if path.suffix.lower() == ".tsv" else csv.excel
-    try:
-        sniffed = csv.Sniffer().sniff(raw[:5000], delimiters=",;\t")
-        dialect = sniffed
-    except csv.Error:
-        pass
-    return [dict(r) for r in csv.DictReader(io.StringIO(raw), dialect=dialect)][:50_000]
+    header = raw.split("\n", 1)[0]
+    if not any(d in header for d in ",;\t"):
+        dialect = _OneColumn
+    else:
+        try:
+            dialect = csv.Sniffer().sniff(raw[:5000], delimiters=",;\t")
+        except csv.Error:
+            pass
+    csv.field_size_limit(min(sys.maxsize, config.MAX_TEXT_CHARS_PER_ITEM * 4))
+    out = []
+    for r in csv.DictReader(io.StringIO(raw), dialect=dialect):
+        extra = r.pop(None, None)  # more cells than headers: keep them (usually an unquoted comma in the last column)
+        if extra:
+            last = list(r)[-1] if r else "extra"
+            r[last] = ",".join([r.get(last) or ""] + [str(x) for x in extra])
+        out.append(dict(r))
+        if len(out) >= 50_000:
+            break
+    return out
 
 
 def import_records(c, source, records: list[dict], label: str):
@@ -208,7 +240,7 @@ def import_csv(c, source, path: Path):
 
 def import_json(c, source, path: Path):
     try:
-        data = json.loads(path.read_text(errors="replace"))
+        data = json.loads(path.read_text(encoding="utf-8-sig", errors="replace"))
     except ValueError as e:
         return {"obtained": [], "missing": [f"The JSON file is malformed ({e})."], "status": "failed"}
     recs = store.find_records(data)
@@ -225,6 +257,7 @@ def describe_frames(c, content_item_id: str, frames) -> tuple[int, str | None]:
         return 0, None
     n = 0
     for fid, t, path in frames:
+        c.commit()  # never hold the database write lock during a model call (it can take a minute per frame)
         try:
             desc = vp._chat("Describe this image in one or two factual sentences: what is shown, any on-screen "
                             "text, any products visible. No speculation. " + providers.UNTRUSTED_NOTICE,
@@ -234,6 +267,7 @@ def describe_frames(c, content_item_id: str, frames) -> tuple[int, str | None]:
             continue
         c.execute("UPDATE media_frames SET description=?, described_by=? WHERE id=?", (desc.strip()[:600], vp.label, fid))
         n += 1
+    c.commit()
     return n, vp.label
 
 
