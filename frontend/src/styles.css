@@ -78,7 +78,7 @@ code { font-family: var(--mono); font-size: 12px; }
 /* surfaces */
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); }
 .card + .card, .stack > * + * { margin-top: 16px; }
-.card-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+.card-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
 .card-head h2 { margin: 0; }
 .grid { display: grid; gap: 16px; align-items: start; }
 .grid > * + * { margin-top: 0 !important; }

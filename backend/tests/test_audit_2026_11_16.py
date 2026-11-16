@@ -164,3 +164,12 @@ def test_sync_warns_when_page_limit_truncates(client, monkeypatch):
         assert res["new"] == 2 and any("more orders than one sync reads" in w for w in res["warnings"])
     finally:
         settings_store.set_secret("lemonsqueezy_api_key", None)
+
+
+def test_unknown_api_path_is_json_404(client):
+    from app import config
+    if not (config.FRONTEND_DIST / "index.html").exists():
+        return  # the SPA catch-all only exists with a built frontend
+    r = client.get("/api/does/not/exist")
+    assert r.status_code == 404 and r.json()["detail"] == "Not found"
+    assert client.get("/creators").status_code == 200  # app pages still served

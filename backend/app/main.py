@@ -74,6 +74,8 @@ if (config.FRONTEND_DIST / "index.html").exists():
 
     @app.get("/{path:path}")
     def spa(path: str):
+        if path == "api" or path.startswith("api/"):
+            return JSONResponse({"detail": "Not found"}, status_code=404)  # unknown API routes aren't app pages
         f = (config.FRONTEND_DIST / path).resolve()
         if path and f.is_file() and f.is_relative_to(config.FRONTEND_DIST.resolve()):
             return FileResponse(f)
