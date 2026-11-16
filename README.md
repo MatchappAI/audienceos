@@ -48,7 +48,7 @@ Each starts the local AI engine if it isn't running, starts the server on `http:
 ## Your first workflow (about 20 minutes, mostly waiting on the local model)
 
 1. **Dashboard → Load demo project.** This loads a clearly labeled synthetic creator, *Hearth & Crumb (DEMO)*: an Instagram comment export, post analytics, a newsletter issue and a short video that gets transcribed locally.
-2. **Content & sources:** wait until all 4 sources say *Ready*, then click **Run analysis →**.
+2. **Content & sources:** wait until all 4 sources say *Ready*, then click **Go to analysis →** and **Run analysis**.
 3. **Audience problems:** the analysis takes about 10–15 minutes on the 7B model. Then click a problem row to see the quotes, and click any quote to open the **evidence drawer**: the verbatim text, how it was classified, and the original comment or timestamp.
 4. **Commercial signals / Audience Intelligence:** these show buying language ranked by strength, the audience profile, and the unknowns.
 5. **Product Opportunities:** open one. Adjust the **scenario** (reach, share who see it, purchase rates), **Approve for testing**, then **Create validation experiment**.

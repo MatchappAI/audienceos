@@ -4,13 +4,40 @@ from pathlib import Path
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
-from pydantic import BaseModel, Field
+from datetime import date as _date
+from typing import Annotated
+
+from pydantic import BaseModel, BeforeValidator, Field, model_validator
 
 from .. import config, db, jobs
 from ..ai.rules import strip_refs
 from ..ingest.store import parse_date, pick
 from ..services import agency, assets, competitors, economics, experiments as ex, reports, scoring
 from .core import must
+
+
+def _iso_date(v):
+    """Money dates must be YYYY-MM-DD: statement periods compare them as text, so any other format would silently
+    drop the row out of a period. Blank means "no date"."""
+    if v is None or (isinstance(v, str) and not v.strip()):
+        return None
+    s = str(v).strip()
+    try:
+        if len(s) == 10 and _date.fromisoformat(s):
+            return s
+    except ValueError:
+        pass
+    raise ValueError(f"'{s}' is not a valid date. Use YYYY-MM-DD, e.g. 2026-03-31.")
+
+
+def _required_iso_date(v):
+    d = _iso_date(v)
+    if d is None:
+        raise ValueError("A date is required (YYYY-MM-DD).")
+    return d
+
+
+IsoDate = Annotated[str | None, BeforeValidator(_iso_date)]
 
 r = APIRouter(prefix="/api")
 
@@ -485,12 +512,18 @@ def patch_creator(org_id: str, body: OrgPatch):
 class DealIn(BaseModel):
     creator_share_pct: float = Field(ge=0, le=100)
     basis: str = Field(pattern="^(net_sales|contribution)$")
-    start_date: str | None = None
-    end_date: str | None = None
+    start_date: IsoDate = None
+    end_date: IsoDate = None
     notes: str | None = None
     loss_carry_forward: bool = False
     min_guarantee_monthly: float | None = Field(default=None, ge=0)
     guarantee_months: int | None = Field(default=None, gt=0)
+
+    @model_validator(mode="after")
+    def _dates_in_order(self):
+        if self.start_date and self.end_date and self.end_date < self.start_date:
+            raise ValueError("The deal's end date is before its start date.")
+        return self
 
 
 @r.post("/creators/{org_id}/deal")
@@ -525,7 +558,9 @@ def creator_statement_csv(org_id: str, start: str | None = None, end: str | None
         w = csv.writer(f)
         w.writerow([f"Creator statement — {st['organization']['name']}",
                     f"Period: {start or 'all time'} to {end or 'today'}",
-                    f"Deal: creator {st['deal']['creator_share_pct']:g}% of {st['deal']['basis']}" if st["deal"] else "No deal"])
+                    (f"Deal: creator {st['deal']['creator_share_pct']:g}% of "
+                     + ("contribution (net sales − payment fees − shared costs)" if st["deal"]["basis"] == "contribution"
+                        else "net sales after payment fees")) if st["deal"] else "No deal"])
         w.writerow(cols)
 
         def cell(c, v):  # whole order counts, money to the cent; blank when not computable (no deal)
@@ -536,14 +571,17 @@ def creator_statement_csv(org_id: str, start: str | None = None, end: str | None
             w.writerow([l["product"]] + [cell(c, l.get(c)) for c in cols[1:]])
         w.writerow(["TOTAL"] + [cell(c, st["totals"].get(c)) for c in cols[1:]])
         w.writerow([])
-        w.writerow(["All-time creator share", cell("x", st["all_time_creator_share"])])
+        en = st.get("entitlement") or {}
+        w.writerow(["Creator entitlement to date (all time)", cell("x", st["all_time_creator_share"])])
+        if en.get("guarantee_top_up"):
+            w.writerow(["  of which minimum-guarantee top-up", cell("x", en["guarantee_top_up"])])
         w.writerow(["Paid out", cell("x", st["paid_out"])])
         w.writerow(["Balance owed to creator", cell("x", st["balance_owed"])])
     return FileResponse(path, filename=f"{st['organization']['name']} statement.csv".replace("/", "_"))
 
 
 class PayoutIn(BaseModel):
-    date: str
+    date: Annotated[str, BeforeValidator(_required_iso_date)]
     amount: float = Field(gt=0)
     reference: str | None = None
     note: str | None = None
@@ -595,8 +633,7 @@ def reapproval_info(p: dict) -> dict | None:
     if p["status"] != "draft":
         return None
     reset = (p.get("approval") or {}).get("reset")
-    sold = (p.get("pnl") or {}).get("orders") or 0
-    if not reset and not p.get("launched_at") and not sold:
+    if not reset and not p.get("launched_at"):  # never approved: a plain draft, even if orders were recorded
         return None
     fields = [FIELD_LABELS.get(f, f) for f in (reset or {}).get("fields", [])]
     what = "/".join(fields) if fields else "price/name/link"
@@ -724,11 +761,17 @@ def launch_product(pid: str):
 
 class SaleIn(BaseModel):
     order_ref: str = Field(min_length=1)
-    date: str | None = None
+    date: IsoDate = None
     amount: float = Field(ge=0)
     refunded_amount: float = Field(default=0, ge=0)
     fee: float | None = Field(default=None, ge=0)
     channel: str | None = None
+
+    @model_validator(mode="after")
+    def _refund_not_above_sale(self):
+        if self.refunded_amount > self.amount + 0.005:
+            raise ValueError(f"The refund ({self.refunded_amount:.2f}) is larger than the sale ({self.amount:.2f}).")
+        return self
 
 
 @r.post("/products/{pid}/sales")
@@ -765,6 +808,13 @@ async def import_sales(pid: str, file: UploadFile = File(...)):
             ref_amt = ex._num(refv)
             if ref_amt is None and str(refv).lower() in ("true", "yes", "1"):
                 ref_amt = amt
+            if ref_amt and ref_amt > amt + 0.005:
+                errors.append(f"Row {i}: refund {ref_amt:.2f} is larger than the sale {amt:.2f} — row skipped")
+                continue
+            raw_date = pick(rr, ex.ORDER_DATE)
+            if raw_date not in (None, "") and parse_date(raw_date) is None:
+                errors.append(f"Row {i}: can't read the date '{raw_date}' — row skipped (use YYYY-MM-DD)")
+                continue
             cur = c.execute("INSERT OR IGNORE INTO product_sales (id, product_id, order_ref, date, amount, refunded_amount, fee, channel, origin, created_at) "
                             "VALUES (?,?,?,?,?,?,?,?,?,?)", (db.new_id("ps"), pid, str(oid), parse_date(pick(rr, ex.ORDER_DATE)), amt,
                                                              ref_amt or 0, ex._num(pick(rr, ex.ORDER_FEE)),
@@ -784,7 +834,7 @@ def del_sale(sid: str):
 
 
 class CostIn(BaseModel):
-    date: str | None = None
+    date: IsoDate = None
     category: str = Field(default="other", pattern="^(production|ads|tools|fulfillment|contractor|other)$")
     amount: float = Field(ge=0)
     shared: bool = True

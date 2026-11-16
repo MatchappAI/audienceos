@@ -47,7 +47,7 @@ function ActiveJobsBadge() {
   if (!jobs.length) return null;
   return (
     <div className="small muted row" style={{ padding: "8px 10px" }}>
-      <span className="spinner" /> {jobs.length} task{jobs.length > 1 ? "s" : ""} running
+      <span className="spinner" title={`${jobs.length} task${jobs.length > 1 ? "s" : ""} running`} /> <span className="nav-label">{jobs.length} task{jobs.length > 1 ? "s" : ""} running</span>
     </div>
   );
 }
@@ -58,7 +58,7 @@ function ThemeToggle() {
   const next = t === "system" ? "light" : t === "light" ? "dark" : "system";
   return (
     <button className="btn ghost sm" onClick={() => setT(next)} title="Switch appearance">
-      {t === "system" ? "◐ Auto" : t === "light" ? "☀ Light" : "☾ Dark"}
+      <span aria-hidden>{t === "system" ? "◐" : t === "light" ? "☀" : "☾"}</span>{" "}<span className="nav-label">{t === "system" ? "Auto" : t === "light" ? "Light" : "Dark"}</span>
     </button>
   );
 }
@@ -71,24 +71,24 @@ export default function App() {
           <div className="app">
             <nav className="side" aria-label="Main">
               <div className="brand">
-                <svg className="brand-mark" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><defs><linearGradient id="aosMarkG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#3a95ff"/><stop offset=".55" stopColor="#0a66c2"/><stop offset="1" stopColor="#0a3f86"/></linearGradient></defs><rect width="32" height="32" rx="8" fill="url(#aosMarkG)"/><circle cx="8.6" cy="23.4" r="3.1" fill="#fff"/><circle cx="8.60" cy="15.20" r="1.55" fill="#fff" fillOpacity="1"/><circle cx="14.40" cy="17.60" r="1.55" fill="#fff" fillOpacity="1"/><circle cx="16.80" cy="23.40" r="1.55" fill="#fff" fillOpacity="1"/><circle cx="8.60" cy="8.40" r="1.55" fill="#fff" fillOpacity="0.82"/><circle cx="14.34" cy="9.54" r="1.55" fill="#fff" fillOpacity="0.82"/><circle cx="19.21" cy="12.79" r="2.5" fill="#ffc24a"/><circle cx="22.46" cy="17.66" r="1.55" fill="#fff" fillOpacity="0.82"/><circle cx="23.60" cy="23.40" r="1.55" fill="#fff" fillOpacity="0.82"/></svg> AudienceOS
+                <svg className="brand-mark" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><defs><linearGradient id="aosMarkG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#3a95ff"/><stop offset=".55" stopColor="#0a66c2"/><stop offset="1" stopColor="#0a3f86"/></linearGradient></defs><rect width="32" height="32" rx="8" fill="url(#aosMarkG)"/><circle cx="8.6" cy="23.4" r="3.1" fill="#fff"/><circle cx="8.60" cy="15.20" r="1.55" fill="#fff" fillOpacity="1"/><circle cx="14.40" cy="17.60" r="1.55" fill="#fff" fillOpacity="1"/><circle cx="16.80" cy="23.40" r="1.55" fill="#fff" fillOpacity="1"/><circle cx="8.60" cy="8.40" r="1.55" fill="#fff" fillOpacity="0.82"/><circle cx="14.34" cy="9.54" r="1.55" fill="#fff" fillOpacity="0.82"/><circle cx="19.21" cy="12.79" r="2.5" fill="#ffc24a"/><circle cx="22.46" cy="17.66" r="1.55" fill="#fff" fillOpacity="0.82"/><circle cx="23.60" cy="23.40" r="1.55" fill="#fff" fillOpacity="0.82"/></svg> <span className="nav-label">AudienceOS</span>
               </div>
               <div className="nav">
                 {NAV.map((n) => (
-                  <NavLink key={n.to} to={n.to} end={n.end}>
+                  <NavLink key={n.to} to={n.to} end={n.end} title={n.label}>
                     <span className="nav-ico" aria-hidden>{n.ico}</span>
-                    {n.label}
+                    <span className="nav-label">{n.label}</span>
                   </NavLink>
                 ))}
                 <div className="sep" />
-                <NavLink to="/creators">
-                  <span className="nav-ico" aria-hidden>$</span>Creators & Revenue
+                <NavLink to="/creators" title="Creators & Revenue">
+                  <span className="nav-ico" aria-hidden>$</span><span className="nav-label">Creators & Revenue</span>
                 </NavLink>
               </div>
               <div className="side-foot nav">
                 <ActiveJobsBadge />
-                <NavLink to="/settings">
-                  <span className="nav-ico" aria-hidden>⚙</span>Settings
+                <NavLink to="/settings" title="Settings">
+                  <span className="nav-ico" aria-hidden>⚙</span><span className="nav-label">Settings</span>
                 </NavLink>
                 <div style={{ padding: "6px 4px" }}>
                   <ThemeToggle />

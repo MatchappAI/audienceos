@@ -340,7 +340,7 @@ export default function SourcesTab({ audience, reloadAudience }: { audience: any
         const busy = data.filter((s) => s.status === "pending" || s.status === "processing").length;
         const ready = data.filter((s) => s.status === "ready" || s.status === "partial").length;
         if (busy) return <div className="notice info small">{busy} source{busy === 1 ? " is" : "s are"} still processing — you can run the analysis once {busy === 1 ? "it finishes" : "they finish"}.</div>;
-        if (ready && !audience.last_analyzed_at) return <div className="notice good row between"><span><b>{ready} source{ready === 1 ? "" : "s"} ready.</b> Next: run the analysis to find what this audience struggles with and would pay for.</span><Link className="btn primary sm" to={`/audiences/${aid}/problems`}>Run analysis →</Link></div>;
+        if (ready && !audience.last_analyzed_at) return <div className="notice good row between"><span><b>{ready} source{ready === 1 ? "" : "s"} ready.</b> Next: run the analysis to find what this audience struggles with and would pay for.</span><Link className="btn primary sm" to={`/audiences/${aid}/problems`}>Go to analysis →</Link></div>;
         return null;
       })()}
 

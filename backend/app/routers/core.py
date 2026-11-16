@@ -267,10 +267,14 @@ def next_actions() -> list[dict]:
     for o in db.all_("SELECT o.id, o.name FROM opportunities o WHERE o.status='validated' AND NOT EXISTS "
                      "(SELECT 1 FROM products p WHERE p.opportunity_id=o.id) LIMIT 3"):
         out.append({"kind": "experiment", "text": f"'{o['name']}' is validated — create the product and its launch checklist", "link": f"/opportunities/{o['id']}"})
-    for pr in db.all_("SELECT p.id, p.name, p.status, p.launched_at, (SELECT COUNT(*) FROM product_sales s WHERE s.product_id=p.id) AS n "
+    for pr in db.all_("SELECT p.id, p.name, p.status, p.launched_at, p.approval_json, (SELECT COUNT(*) FROM product_sales s WHERE s.product_id=p.id) AS n "
                       "FROM products p WHERE p.status IN ('draft','approved','launched') ORDER BY p.updated_at DESC LIMIT 6"):
-        if pr["status"] == "draft" and (pr["launched_at"] or pr["n"]):
-            out.append({"kind": "decide", "text": f"'{pr['name']}' changed after launch — re-approve it", "link": f"/products/{pr['id']}"})
+        reset = (pr.get("approval") or {}).get("reset")
+        if pr["status"] == "draft" and (pr["launched_at"] or reset):
+            when = "launch" if pr["launched_at"] or (reset or {}).get("from_status") == "launched" else "approval"
+            out.append({"kind": "decide", "text": f"'{pr['name']}' changed after {when} — re-approve it", "link": f"/products/{pr['id']}"})
+        elif pr["status"] == "draft":
+            out.append({"kind": "decide", "text": f"'{pr['name']}' is a draft — finish the launch checks and approve it", "link": f"/products/{pr['id']}"})
         elif pr["status"] == "approved":
             out.append({"kind": "decide", "text": f"'{pr['name']}' is approved — mark it launched once it's live on the storefront", "link": f"/products/{pr['id']}"})
         elif pr["status"] == "launched" and not pr["n"]:

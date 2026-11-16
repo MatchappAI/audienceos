@@ -256,3 +256,51 @@ def test_products_rebuild_keeps_sales(tmp_path):
     assert c.execute("SELECT sync_provider FROM products").fetchone()[0] == "stripe"
     c.execute("UPDATE products SET sync_provider='shopify'")  # new value allowed
     c.commit()
+
+
+def test_refund_larger_than_sale_rejected(client):
+    a, org, p = _creator(client, "RefundCo")
+    r = client.post(f"/api/products/{p['id']}/sales", json={"order_ref": "r1", "amount": 20, "refunded_amount": 25})
+    assert r.status_code == 422 and "larger than the sale" in r.text
+    assert client.post(f"/api/products/{p['id']}/sales", json={"order_ref": "r2", "amount": 20, "refunded_amount": 20}).status_code == 200
+    csv = "order_id,amount,refunded_amount,date\nc1,10,15,2026-01-02\nc2,10,0,2026-01-02\n"
+    out = client.post(f"/api/products/{p['id']}/sales/import", files={"file": ("o.csv", csv, "text/csv")}).json()
+    assert out["result"]["imported"] == 1 and "larger than the sale" in out["result"]["errors"][0]
+
+
+def test_money_dates_must_be_iso(client):
+    a, org, p = _creator(client, "DateCo")
+    bad = client.post(f"/api/products/{p['id']}/sales", json={"order_ref": "d1", "amount": 10, "date": "03/04/2026"})
+    assert bad.status_code == 422 and "YYYY-MM-DD" in bad.text
+    assert client.post(f"/api/products/{p['id']}/sales", json={"order_ref": "d2", "amount": 10, "date": "2026-02-30"}).status_code == 422
+    assert client.post(f"/api/products/{p['id']}/sales", json={"order_ref": "d3", "amount": 10, "date": ""}).status_code == 200
+    assert client.post(f"/api/products/{p['id']}/costs", json={"amount": 5, "date": "yesterday"}).status_code == 422
+    assert client.post(f"/api/products/{p['id']}/costs", json={"amount": 5, "date": ""}).status_code == 200
+    assert client.post(f"/api/creators/{org}/payouts", json={"amount": 5, "date": "Nov 3"}).status_code == 422
+    assert client.post(f"/api/creators/{org}/payouts", json={"amount": 5, "date": ""}).status_code == 422
+    assert client.post(f"/api/creators/{org}/payouts", json={"amount": 5, "date": "2026-11-03"}).status_code == 200
+    r = client.post(f"/api/creators/{org}/deal", json={"creator_share_pct": 70, "basis": "net_sales",
+                                                       "start_date": "2026-06-01", "end_date": "2026-01-01"})
+    assert r.status_code == 422 and "before its start" in r.text
+    # CSV import still accepts common checkout date formats, and skips unreadable ones with a reason.
+    csv = "order_id,amount,date\nx1,10,03/04/2026\nx2,10,not a date\n"
+    out = client.post(f"/api/products/{p['id']}/sales/import", files={"file": ("o.csv", csv, "text/csv")}).json()
+    assert out["result"]["imported"] == 1 and "can't read the date" in out["result"]["errors"][0]
+
+
+def test_statement_csv_wording(client):
+    a, org, p = _creator(client, "CsvCo")
+    client.post(f"/api/creators/{org}/deal", json={"creator_share_pct": 70, "basis": "net_sales"})
+    client.post(f"/api/products/{p['id']}/sales", json={"order_ref": "s1", "amount": 10, "fee": 0})
+    text = client.get(f"/api/creators/{org}/statement.csv").text
+    assert "net sales after payment fees" in text and "net_sales\"" not in text.splitlines()[0]
+    assert "Creator entitlement to date (all time),7.00" in text
+
+
+def test_never_approved_draft_with_sales_is_not_back_to_draft(client):
+    a = client.post("/api/audiences", json={"org_name": "DraftCo"}).json()
+    p = client.post("/api/products", json={"audience_id": a["id"], "name": "Draft kit", "price": 20}).json()
+    got = client.post(f"/api/products/{p['id']}/sales", json={"order_ref": "early", "amount": 20}).json()
+    assert got["status"] == "draft" and got["reapproval"] is None
+    actions = [x["text"] for x in client.get("/api/dashboard").json()["next_actions"]]
+    assert not any("'Draft kit' changed after" in t for t in actions)

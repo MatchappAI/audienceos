@@ -14,7 +14,11 @@ async function handle(res: Response): Promise<any> {
     let msg = "Something went wrong.";
     if (body && typeof body === "object" && "detail" in body) {
       const d = (body as any).detail;
-      msg = typeof d === "string" ? d : Array.isArray(d) ? d.map((x: any) => `${(x.loc || []).slice(1).join(".")}: ${x.msg}`).join("; ") : JSON.stringify(d);
+      msg = typeof d === "string" ? d : Array.isArray(d) ? d.map((x: any) => {
+        const field = (x.loc || []).slice(1).join(".").replace(/_/g, " ");
+        const m = String(x.msg || "").replace(/^Value error, /, "");
+        return field && !/^\d+$/.test(field) ? `${field}: ${m}` : m;
+      }).join("; ") : JSON.stringify(d);
     } else if (typeof body === "string" && body) msg = body.slice(0, 300);
     throw new ApiError(msg, res.status);
   }
