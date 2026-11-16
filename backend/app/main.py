@@ -73,6 +73,6 @@ if (config.FRONTEND_DIST / "index.html").exists():
     @app.get("/{path:path}")
     def spa(path: str):
         f = (config.FRONTEND_DIST / path).resolve()
-        if path and f.is_file() and str(f).startswith(str(config.FRONTEND_DIST.resolve())):
+        if path and f.is_file() and f.is_relative_to(config.FRONTEND_DIST.resolve()):
             return FileResponse(f)
         return FileResponse(config.FRONTEND_DIST / "index.html")

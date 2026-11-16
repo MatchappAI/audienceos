@@ -158,6 +158,9 @@ export function CreatorDetail() {
   const t = st.totals;
   const myAuds = (auds || []).filter((a) => a.organization_id === org.id);
   const addPayout = async () => {
+    const amt = Number(po.amount);
+    if (st.balance_owed != null && amt > st.balance_owed + 0.005 &&
+        !window.confirm(`${money(amt)} is more than the ${money(st.balance_owed)} currently owed. Record it anyway (for example, an advance)?`)) return;
     if (await act.run(() => post(`/api/creators/${id}/payouts`, { ...po, amount: Number(po.amount), reference: po.reference || null, note: po.note || null }))) {
       setPo({ ...po, amount: "", reference: "", note: "" }); toast("Payout recorded"); reload();
     }
@@ -179,7 +182,8 @@ export function CreatorDetail() {
         <div className="card mb row">
           <input placeholder="Contact name" value={contact.contact_name} onChange={(e) => setContact({ ...contact, contact_name: e.target.value })} style={{ maxWidth: 240 }} />
           <input placeholder="Email" value={contact.contact_email} onChange={(e) => setContact({ ...contact, contact_email: e.target.value })} style={{ maxWidth: 280 }} />
-          <button className="btn primary sm" onClick={saveContact}>Save</button><button className="btn sm" onClick={() => setContact(null)}>Cancel</button>
+          <button className="btn primary sm" onClick={saveContact} disabled={act.busy}>Save</button><button className="btn sm" onClick={() => setContact(null)}>Cancel</button>
+          {act.error && <div style={{ flexBasis: "100%" }}><ErrorBox error={act.error} /></div>}
         </div>
       )}
       {st.warnings.map((w: string) => <div key={w} className="notice warn small mb">{w}</div>)}
@@ -208,7 +212,7 @@ export function CreatorDetail() {
                     <th className="num">Shared costs</th><th className="num">Split base</th><th className="num">Creator</th><th className="num">Agency</th></tr></thead>
                   <tbody>
                     {st.lines.map((l: any) => (
-                      <tr key={l.product_id}><td><Link to={`/products/${l.product_id}`}>{l.product}</Link> {l.status === "draft" && (l.launched_at || l.orders > 0) ? <span className="badge warn" title="Price, name or checkout link changed after approval — re-approve to relaunch. Sales are kept.">Back to draft</span> : <Status s={l.status} />}{l.fees_missing ? <div className="tiny" style={{ color: "var(--warn)" }}>{l.fees_missing} orders without fee data</div> : null}</td>
+                      <tr key={l.product_id}><td><Link to={`/products/${l.product_id}`}>{l.product}</Link> {l.back_to_draft ? <span className="badge warn" title="Price, name or checkout link changed after approval — re-approve to relaunch. Sales are kept.">Back to draft</span> : <Status s={l.status} />}{l.fees_missing ? <div className="tiny" style={{ color: "var(--warn)" }}>{l.fees_missing} orders without fee data</div> : null}</td>
                         <td className="num">{l.orders}</td><td className="num">{money(l.gross)}</td><td className="num">{money(l.refunds)}</td><td className="num">{money(l.fees)}</td>
                         <td className="num">{money(l.shared_costs)}</td><td className="num">{money(l.split_base)}</td>
                         <td className="num strong">{l.creator_share == null ? "—" : money(l.creator_share)}</td><td className="num">{l.agency_share == null ? "—" : money(l.agency_share)}</td></tr>
@@ -237,7 +241,7 @@ export function CreatorDetail() {
             {st.payouts.length > 0 && (
               <table className="t small mt"><tbody>{st.payouts.map((p: any) => (
                 <tr key={p.id}><td className="nowrap">{date(p.date)}</td><td className="num">{money(p.amount)}</td><td className="muted" style={{ wordBreak: "break-word" }}>{p.reference || ""}</td>
-                  <td><button className="btn ghost sm" onClick={async () => { if (window.confirm("Delete this payout record?") && (await act.run(() => del(`/api/payouts/${p.id}`)))) reload(); }}>✕</button></td></tr>
+                  <td><button className="btn ghost sm" aria-label={`Delete payout of ${money(p.amount)}`} title="Delete this payout record" onClick={async () => { if (window.confirm("Delete this payout record?") && (await act.run(() => del(`/api/payouts/${p.id}`)))) reload(); }}>✕</button></td></tr>
               ))}</tbody></table>
             )}
           </div>

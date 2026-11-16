@@ -19,7 +19,8 @@ function Setup({ p, reload }: { p: any; reload: () => void }) {
     <div className="card">
       <div className="card-head"><h2>Product & storefront</h2>
         <div className="row">{p.status === "launched" && <button className="btn sm" onClick={() => pause("paused")}>Pause</button>}
-          {p.status !== "retired" && <button className="btn ghost sm" onClick={() => pause("retired")}>Retire</button>}</div></div>
+          {p.status !== "retired" && <button className="btn ghost sm" onClick={() => { if (window.confirm(`Retire '${p.name}'? It stops counting as live. Its sales stay on the statement, and you can reopen it as a draft later.`)) pause("retired"); }}>Retire</button>}
+          {p.status === "retired" && <button className="btn sm" onClick={() => pause("draft")}>Reopen as draft</button>}</div></div>
       <div>
         <label className="field"><span>Name</span><input value={f.name ?? ""} onChange={(e) => setF({ ...f, name: e.target.value })} /></label>
         <div className="grid" style={{ gap: 10, gridTemplateColumns: "1fr 1.3fr" }}>
@@ -65,7 +66,8 @@ function Launch({ p, reload }: { p: any; reload: () => void }) {
           <button className="btn primary" onClick={approve} disabled={act.busy || !approver.trim()}>Approve for launch</button>
         </>
       )}
-      {p.status !== "draft" && (
+      {p.status === "retired" && <p className="small muted">Retired{p.launched_at ? ` after launching on ${date(p.launched_at)}` : ""}. Reopen it as a draft (Product & storefront) to approve and launch it again.</p>}
+      {p.status !== "draft" && p.status !== "retired" && (
         <>
           <div className="notice good small">Approved by <b>{ap.approver}</b> on {dateTime(ap.at || p.approved_at)}{ap.note ? ` — ${ap.note}` : ""}</div>
           {p.status === "approved" && (
@@ -122,7 +124,7 @@ function Sales({ p, reload }: { p: any; reload: () => void }) {
               <tr key={s.id}><td className="mono">{s.order_ref}</td><td>{date(s.date)}</td><td className="num">{money(s.amount)}</td>
                 <td className="num">{s.refunded_amount ? money(s.refunded_amount) : "—"}</td><td className="num"><V v={s.fee} kind="usd" /></td>
                 <td>{s.channel || <span className="faint">unattributed</span>}</td>
-                <td><button className="btn ghost sm" onClick={async () => { if (await act.run(() => del(`/api/sales/${s.id}`))) reload(); }}>✕</button></td></tr>
+                <td><button className="btn ghost sm" aria-label={`Delete order ${s.order_ref}`} title="Delete this order" onClick={async () => { if (window.confirm(`Delete order ${s.order_ref} (${money(s.amount)})? It will no longer count toward sales or the creator statement.`) && (await act.run(() => del(`/api/sales/${s.id}`)))) reload(); }}>✕</button></td></tr>
             ))}</tbody>
           </table>
         </div>
@@ -153,7 +155,7 @@ function Costs({ p, reload }: { p: any; reload: () => void }) {
       {p.costs.length > 0 && (
         <table className="t small mt"><tbody>{p.costs.map((c: any) => (
           <tr key={c.id}><td className="nowrap">{date(c.date)}</td><td>{c.category}</td><td className="num">{money(c.amount)}</td><td>{c.shared ? <span className="badge">shared</span> : <span className="badge">agency only</span>}</td>
-            <td className="muted">{c.note}</td><td><button className="btn ghost sm" onClick={async () => { if (await act.run(() => del(`/api/costs/${c.id}`))) reload(); }}>✕</button></td></tr>
+            <td className="muted">{c.note}</td><td><button className="btn ghost sm" aria-label={`Delete ${c.category} cost ${money(c.amount)}`} title="Delete this cost" onClick={async () => { if (window.confirm(`Delete this ${c.category} cost (${money(c.amount)})?`) && (await act.run(() => del(`/api/costs/${c.id}`)))) reload(); }}>✕</button></td></tr>
         ))}</tbody></table>
       )}
     </div>

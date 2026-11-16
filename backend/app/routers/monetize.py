@@ -163,8 +163,8 @@ class ExperimentIn(BaseModel):
     channel: str | None = None
     target_exposure: int | None = Field(default=None, ge=0)
     criteria: list[dict] | None = None
-    start_date: str | None = None
-    end_date: str | None = None
+    start_date: IsoDate = None
+    end_date: IsoDate = None
     payment_fee_pct: float | None = Field(default=None, ge=0, le=100)
     payment_fee_fixed: float | None = Field(default=None, ge=0)
     checkout_url: str | None = None
@@ -414,11 +414,16 @@ def patch_asset(aid: str, body: AssetPatch):
 
 class ApproveIn(BaseModel):
     approved: bool
+    flags_checked: bool = False  # the reviewer confirms they fixed or checked every flagged claim
 
 
 @r.post("/assets/{aid}/approve")
 def approve_asset(aid: str, body: ApproveIn):
     a = must(db.one("SELECT * FROM assets WHERE id=?", (aid,)), "Asset")
+    flags = [f for f in ((a.get("review") or {}).get("flags") or []) if isinstance(f, dict)]
+    if body.approved and flags and not body.flags_checked:
+        raise HTTPException(400, f"This draft has {len(flags)} flagged claim{'s' if len(flags) > 1 else ''}. "
+                                 "Fix or check them, then confirm before approving.")
     with db.tx() as c:
         db.update(c, "assets", aid, {"status": "approved" if body.approved else "draft",
                                      "approved_at": db.now() if body.approved else None, "updated_at": db.now()})
@@ -472,7 +477,7 @@ def report_file(rid: str, key: str, download: bool = False):
     if not path or not Path(path).exists():
         raise HTTPException(404, "File not found")
     p = Path(path).resolve()
-    if not str(p).startswith(str(config.REPORTS_DIR.resolve())):
+    if not p.is_relative_to(config.REPORTS_DIR.resolve()):
         raise HTTPException(403, "Not allowed")
     headers = {"Content-Security-Policy": PREVIEW_CSP} if p.suffix == ".html" else {}
     return FileResponse(p, filename=p.name if download else None, headers=headers,
@@ -495,9 +500,21 @@ def creators():
     return {"creators": out, "stages": [{"key": k, "label": agency.STAGE_LABEL[k]} for k in agency.STAGES]}
 
 
+def _email(v):
+    """Blank clears the email; anything else must look like an address (the payout file needs a usable one)."""
+    if v is None:
+        return None
+    s = str(v).strip()
+    if not s:
+        return ""
+    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", s) or len(s) > 254:
+        raise ValueError(f"'{s}' doesn't look like an email address.")
+    return s
+
+
 class OrgPatch(BaseModel):
-    contact_name: str | None = None
-    contact_email: str | None = None
+    contact_name: str | None = Field(default=None, max_length=200)
+    contact_email: Annotated[str | None, BeforeValidator(_email)] = None
     description: str | None = None
 
 
@@ -711,6 +728,18 @@ def patch_product(pid: str, body: ProductIn):
         raise HTTPException(400, "Checkout links must start with https://")
     material = {"name", "price", "price_model", "checkout_url"} & set(d)
     changed = [k for k in ("name", "price", "price_model", "checkout_url") if k in material and d[k] != p[k]]
+    want = d.get("status")
+    if want and want != p["status"]:
+        # Status moves that keep the launch gate honest: pause only what is live; a retired product can come back only
+        # as a draft (and is then re-approved like any other); moving anything to draft withdraws its approval.
+        if want == "paused" and p["status"] != "launched":
+            raise HTTPException(400, "Only a launched product can be paused.")
+        if want == "draft" and p["status"] in ("approved", "launched", "paused"):
+            d["approved_at"] = None
+            d["approval_json"] = {"reset": {"fields": [], "from_status": p["status"], "at": db.now(),
+                                            "previous_approver": (p.get("approval") or {}).get("approver")}}
+    elif want:
+        d.pop("status")
     if p["status"] in ("approved", "launched", "paused") and changed:
         # Changing what buyers see requires a fresh approval. Record why, so the UI can explain it.
         d["status"], d["approved_at"] = "draft", None
@@ -730,6 +759,9 @@ class ApprovalIn(BaseModel):
 @r.post("/products/{pid}/approve")
 def approve_product(pid: str, body: ApprovalIn):
     p = product_full(pid)
+    if p["status"] != "draft":
+        raise HTTPException(400, "Only a draft product can be approved." if p["status"] != "retired"
+                            else "This product is retired. Reopen it as a draft first.")
     missing = [l for k, l in agency.LAUNCH_CHECKLIST if not body.checklist.get(k)]
     if missing:
         raise HTTPException(400, "Every launch check must be confirmed: " + "; ".join(missing))
@@ -749,7 +781,8 @@ def approve_product(pid: str, body: ApprovalIn):
 @r.post("/products/{pid}/launch")
 def launch_product(pid: str):
     p = product_full(pid)
-    if p["status"] not in ("approved", "paused"):
+    approved = bool((p.get("approval") or {}).get("approver")) and bool(p.get("approved_at") or p.get("launched_at"))
+    if p["status"] not in ("approved", "paused") or not approved:
         raise HTTPException(400, "Only approved products can be marked launched.")
     with db.tx() as c:
         db.update(c, "products", pid, {"status": "launched", "launched_at": p["launched_at"] or db.now(), "updated_at": db.now()})

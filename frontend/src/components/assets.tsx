@@ -44,7 +44,7 @@ function AssetDrawer({ id, onClose, onChanged }: { id: string; onClose: () => vo
   const toast = useToast();
   useEffect(() => { if (a) setContent(a.content); }, [a]);
   const save = async () => { if (await act.run(() => patch(`/api/assets/${id}`, { content }))) { setEditing(false); setStamp(Date.now()); reload(); onChanged(); toast("Saved — needs re-approval"); } };
-  const approve = async (v: boolean) => { if (await act.run(() => post(`/api/assets/${id}/approve`, { approved: v }))) { setStamp(Date.now()); reload(); onChanged(); } };
+  const approve = async (v: boolean) => { if (await act.run(() => post(`/api/assets/${id}/approve`, { approved: v, flags_checked: v && checked }))) { setStamp(Date.now()); reload(); onChanged(); } };
   const remove = async () => { if (window.confirm("Delete this draft?") && (await act.run(() => del(`/api/assets/${id}`)))) { onChanged(); onClose(); } };
   const flags = (Array.isArray(a?.review?.flags) ? a.review.flags : []).filter((f: any) => f && typeof f === "object");
   return (

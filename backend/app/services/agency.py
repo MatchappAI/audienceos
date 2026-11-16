@@ -75,7 +75,9 @@ def statement(org_id: str, start: str | None = None, end: str | None = None) -> 
         base = pnl["net_sales"] - pnl["fees"] - (pnl["shared_costs"] if basis == "contribution" else 0)
         cf = bool(deal and deal.get("loss_carry_forward"))
         cshare = (money((base if cf else max(0.0, base)) * pct / 100)) if pct is not None else None
-        line = {"product_id": p["id"], "product": p["name"], "status": p["status"], "launched_at": p.get("launched_at"), **pnl, "split_base": round(base, 2),
+        back = p["status"] == "draft" and bool(p.get("launched_at") or (p.get("approval") or {}).get("reset"))
+        line = {"product_id": p["id"], "product": p["name"], "status": p["status"], "launched_at": p.get("launched_at"),
+                "back_to_draft": back, **pnl, "split_base": round(base, 2),
                 "creator_share": cshare, "agency_share": money(base - cshare) if cshare is not None else None}
         lines.append(line)
         for k in tot:
@@ -95,6 +97,29 @@ def statement(org_id: str, start: str | None = None, end: str | None = None) -> 
         warnings.append("No active deal — set the revenue-share terms before reporting creator obligations.")
     if any(l["fees_missing"] for l in lines):
         warnings.append("Some sales have no payment-fee data; fees are counted as $0 for those orders. Import fee columns from your checkout export.")
+    if start or end:
+        undated = db.scalar("SELECT COUNT(*) FROM product_sales ps JOIN products p ON p.id=ps.product_id JOIN audiences a "
+                            "ON a.id=p.audience_id WHERE a.organization_id=? AND (ps.date IS NULL OR ps.date='')", (org_id,))
+        if undated:
+            warnings.append(f"{undated} order{'s have' if undated > 1 else ' has'} no date, so {'they are' if undated > 1 else 'it is'} "
+                            "left out of this period (they still count in all-time figures and the balance). Add dates to include them.")
+    if deal and (deal.get("start_date") or deal.get("end_date")):
+        outside = db.scalar("SELECT COUNT(*) FROM product_sales ps JOIN products p ON p.id=ps.product_id JOIN audiences a "
+                            "ON a.id=p.audience_id WHERE a.organization_id=? AND ps.date IS NOT NULL AND ps.date != '' "
+                            "AND ((? IS NOT NULL AND ps.date < ?) OR (? IS NOT NULL AND ps.date > ?))",
+                            (org_id, deal.get("start_date"), deal.get("start_date"), deal.get("end_date"), deal.get("end_date")))
+        if outside:
+            warnings.append(f"{outside} order{'s are' if outside > 1 else ' is'} dated outside the deal term "
+                            f"({deal.get('start_date') or 'start'} to {deal.get('end_date') or 'open-ended'}) and still counted. "
+                            "Check the contract; delete or re-date them if they shouldn't be shared.")
+    if deal:
+        old_terms = db.all_("SELECT DISTINCT creator_share_pct, basis, loss_carry_forward, min_guarantee_monthly FROM deals "
+                            "WHERE organization_id=? AND id != ?", (org_id, deal["id"]))
+        if any((d["creator_share_pct"], d["basis"], d["loss_carry_forward"], d["min_guarantee_monthly"])
+               != (deal["creator_share_pct"], deal["basis"], deal["loss_carry_forward"], deal["min_guarantee_monthly"])
+               for d in old_terms):
+            warnings.append("The deal terms were changed. Every figure here, including past sales and the balance, uses the "
+                            "current terms. If the old terms should apply to earlier sales, settle that period separately.")
     if any(l["split_base"] < 0 for l in lines):
         warnings.append("At least one product has a negative split base. "
                         + ("Under this deal's loss carry-forward, it offsets profits on other products and later periods."

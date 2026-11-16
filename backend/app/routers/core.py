@@ -2,6 +2,7 @@
 import hashlib
 import json
 import shutil
+import threading
 from pathlib import Path
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
@@ -15,6 +16,7 @@ from ..security import classify_file, safe_filename
 from ..services import intel
 
 r = APIRouter(prefix="/api")
+_enqueue_lock = threading.Lock()  # check-then-enqueue for "only one at a time" jobs (sync routes run in a thread pool)
 
 
 def must(row, what="Item"):
@@ -105,12 +107,13 @@ def model_presets():
 
 @r.post("/models/pull")
 def pull_model(body: PullIn):
-    existing = db.one("SELECT id FROM jobs WHERE kind='pull_model' AND status IN ('queued','running') AND "
-                      "json_extract(payload_json,'$.model')=?", (body.model,))
-    if existing:
-        return {"job_id": existing["id"]}
-    return {"job_id": jobs.enqueue("pull_model", payload={"model": body.model, "purpose": body.purpose}, max_attempts=1,
-                                   message=f"Downloading {body.model}")}
+    with _enqueue_lock:
+        existing = db.one("SELECT id FROM jobs WHERE kind='pull_model' AND status IN ('queued','running') AND "
+                          "json_extract(payload_json,'$.model')=?", (body.model,))
+        if existing:
+            return {"job_id": existing["id"]}
+        return {"job_id": jobs.enqueue("pull_model", payload={"model": body.model, "purpose": body.purpose}, max_attempts=1,
+                                       message=f"Downloading {body.model}")}
 
 
 def _use_pulled_model(model: str, purpose: str | None) -> str:
@@ -212,7 +215,7 @@ def dashboard():
     owed = 0.0
     for o in db.all_("SELECT id FROM organizations WHERE is_demo=0"):
         b = agency.statement(o["id"])["balance_owed"]
-        owed += b or 0
+        owed += max(0.0, b or 0)  # an overpaid creator (negative balance) doesn't reduce what others are owed
     stats.update({"product_orders": int(prod_orders), "product_net_sales": round(prod_net, 2),
                   "creator_balance_owed": round(owed, 2),
                   "launched_products": q("SELECT COUNT(*) FROM products WHERE status='launched' AND is_demo=0")})
@@ -403,7 +406,7 @@ def add_channel(aid: str, body: ChannelIn):
 @r.patch("/channels/{cid}")
 def patch_channel(cid: str, body: ChannelIn):
     ch = must(db.one("SELECT * FROM channels WHERE id=?", (cid,)), "Channel")
-    d = body.model_dump()
+    d = body.model_dump(exclude_unset=True)  # a partial update must not blank the other fields
     if body.follower_count is not None:
         d["follower_count_source"] = "entered by you"
     with db.tx() as c:
@@ -602,7 +605,7 @@ def get_content(cid: str):
 def frame_image(fid: str):
     f = must(db.one("SELECT path FROM media_frames WHERE id=?", (fid,)), "Frame")
     p = Path(f["path"]).resolve()
-    if not (str(p).startswith(str(config.DATA_DIR.resolve()))) or not p.exists():
+    if not p.is_relative_to(config.DATA_DIR.resolve()) or not p.exists():
         raise HTTPException(404, "Image not available")
     return FileResponse(p)
 
@@ -623,12 +626,13 @@ def analyze(aid: str, body: AnalyzeIn):
         raise HTTPException(400, why)
     if p.external and not body.confirm_external:
         raise HTTPException(409, f"This analysis would send the audience material to {p.display}. Confirm to continue.")
-    busy = db.one("SELECT id FROM jobs WHERE audience_id=? AND kind='analyze_audience' AND status IN ('queued','running')", (aid,))
-    if busy:
-        return {"job_id": busy["id"], "already_running": True}
-    pending = db.scalar("SELECT COUNT(*) FROM jobs WHERE audience_id=? AND kind='ingest_source' AND status IN ('queued','running')", (aid,))
-    jid = jobs.enqueue("analyze_audience", aid, payload={"provider": p.name}, max_attempts=2,
-                       message="Waiting for imports to finish" if pending else "Starting analysis")
+    with _enqueue_lock:  # two quick clicks (or two tabs) must not start two analyses of the same audience
+        busy = db.one("SELECT id FROM jobs WHERE audience_id=? AND kind='analyze_audience' AND status IN ('queued','running')", (aid,))
+        if busy:
+            return {"job_id": busy["id"], "already_running": True}
+        pending = db.scalar("SELECT COUNT(*) FROM jobs WHERE audience_id=? AND kind='ingest_source' AND status IN ('queued','running')", (aid,))
+        jid = jobs.enqueue("analyze_audience", aid, payload={"provider": p.name}, max_attempts=2,
+                           message="Waiting for imports to finish" if pending else "Starting analysis")
     return {"job_id": jid, "provider": p.label, "external": p.external}
 
 
