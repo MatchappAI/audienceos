@@ -141,3 +141,26 @@ def test_channel_patch_keeps_unsent_fields(client):
     cid = a["channels"][0]["id"]
     got = client.patch(f"/api/channels/{cid}", json={"follower_count": 900}).json()["channels"][0]
     assert got["platform"] == "youtube" and got["handle"] == "@chan" and got["follower_count"] == 900
+
+
+def test_sync_warns_when_page_limit_truncates(client, monkeypatch):
+    import httpx
+
+    from app import settings_store
+    from app.services import checkout_sync
+    a, p = _product(client, "ManyOrdersCo")
+    client.put(f"/api/products/{p['id']}/sync", json={"sync_provider": "lemonsqueezy", "sync_ref": "77"})
+    settings_store.set_secret("lemonsqueezy_api_key", "ls_fake")
+    monkeypatch.setattr(checkout_sync, "MAX_PAGES", 2)
+
+    def handler(req):
+        page = req.url.params["page[number]"]
+        return httpx.Response(200, json={"data": [{"id": f"o{page}", "attributes": {
+            "first_order_item": {"product_id": 77}, "status": "paid", "total": 1000, "refunded_amount": 0}}],
+            "meta": {"page": {"lastPage": 9}}})
+    try:
+        monkeypatch.setattr(checkout_sync, "_transport", httpx.MockTransport(handler))
+        res = client.post(f"/api/products/{p['id']}/sync").json()["result"]
+        assert res["new"] == 2 and any("more orders than one sync reads" in w for w in res["warnings"])
+    finally:
+        settings_store.set_secret("lemonsqueezy_api_key", None)

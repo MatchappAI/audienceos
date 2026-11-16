@@ -35,6 +35,17 @@ class SyncError(Exception):
     pass
 
 
+class Orders(list):
+    """Fetched orders; `truncated` is set when the page limit stopped the fetch before the provider's last page."""
+    truncated = False
+
+
+def _truncated(out: list) -> "Orders":
+    o = Orders(out)
+    o.truncated = True
+    return o
+
+
 def _client(**kw) -> httpx.Client:
     return httpx.Client(timeout=30, transport=_transport, **kw)
 
@@ -79,6 +90,8 @@ def stripe_orders(key: str, payment_link: str) -> list[dict]:
             if not body.get("has_more") or not body.get("data"):
                 break
             after = body["data"][-1]["id"]
+        else:
+            out = _truncated(out)
     return out
 
 
@@ -105,6 +118,8 @@ def gumroad_orders(token: str, product_id: str) -> list[dict]:
             page_key = body.get("next_page_key")
             if not page_key:
                 break
+        else:
+            out = _truncated(out)
     return out
 
 
@@ -160,6 +175,8 @@ def shopify_orders(token: str, ref: str) -> list[dict]:
             if urlparse(nxt).hostname != shop:
                 raise SyncError("Shopify returned an unexpected pagination link.")
             url, params = nxt, None
+        else:
+            out = _truncated(out)
     return out
 
 
@@ -189,6 +206,8 @@ def lemonsqueezy_orders(key: str, product_id: str) -> list[dict]:
             last = ((body.get("meta") or {}).get("page") or {}).get("lastPage") or page
             if page >= last:
                 break
+        else:
+            out = _truncated(out)
     return out
 
 
@@ -226,9 +245,13 @@ def sync_product(pid: str) -> dict:
                             "AND (refunded_amount != ? OR (fee IS NULL AND ? IS NOT NULL))",
                             (o["refunded_amount"], o["fee"], pid, o["order_ref"], o["refunded_amount"], o["fee"]))
             updated += cur.rowcount
+        warnings = [f"Some orders are in {', '.join(sorted(currencies)).upper()}; amounts are stored as-is, not converted."] \
+            if currencies else []
+        if getattr(orders, "truncated", False):
+            warnings.append(f"{NAMES[p['sync_provider']]} has more orders than one sync reads ({MAX_PAGES} pages). The newest "
+                            "may be missing: import the rest from the checkout's order CSV.")
         result = {"provider": p["sync_provider"], "fetched": len(orders), "new": new, "updated": updated, "at": db.now(),
-                  "warnings": [f"Some orders are in {', '.join(sorted(currencies)).upper()}; amounts are stored as-is, not converted."]
-                  if currencies else []}
+                  "warnings": warnings}
         db.update(c, "products", pid, {"last_synced_at": result["at"], "last_sync_json": result, "updated_at": db.now()})
         db.log_activity(c, p["audience_id"], "sales", f"Synced {new} new orders from {NAMES[p['sync_provider']]} for '{p['name']}'")
     return result

@@ -277,11 +277,8 @@ def vision_provider() -> BaseProvider | None:
         p = OllamaProvider(vm)
         if p.available()[0]:
             return p
-    active = settings_store.get("ai_provider")
-    if active in ("anthropic", "openai"):
-        p = get_provider(active)
-        if p.available()[0]:
-            return p
+    # External providers are never used here: frames are described during import, where there is no per-run
+    # consent step, and nothing may leave this Mac without one.
     return None
 
 

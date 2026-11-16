@@ -181,3 +181,13 @@ def test_calculator_rejects_comments_and_reserved_words():
 def test_httpx_request_urls_not_logged():
     from app import main  # noqa: F401  (sets up logging)
     assert logging.getLogger("httpx").getEffectiveLevel() >= logging.WARNING
+
+
+def test_frames_never_go_to_external_ai_during_import(monkeypatch):
+    settings_store.set_many({"ai_provider": "anthropic", "allow_external_ai": True, "ollama_vision_model": ""})
+    settings_store.set_secret("anthropic_api_key", "sk-test-not-real")
+    try:
+        assert providers.vision_provider() is None
+    finally:
+        settings_store.set_secret("anthropic_api_key", None)
+        settings_store.set_many({"ai_provider": "ollama", "allow_external_ai": False})
