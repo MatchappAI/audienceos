@@ -69,7 +69,9 @@ from app.services import checkout_sync, competitors as _comp  # noqa: E402
 
 PAGE = (b"<html><head><title>Stub page</title></head><body><h1>Sourdough starter guide</h1>"
         b"<p>How do I keep my starter alive while travelling? I would pay for a simple schedule.</p>"
-        b"<p>Price: $29</p></body></html>")
+        b"<p>Price: $29</p>"
+        + b"<p>" + b" ".join([b"Feeding a starter twice a day keeps it lively; travel, heat and new flour all change the timing."] * 6)
+        + b"</p></body></html>")
 
 
 def fake_safe_get(url, **kw):

@@ -1,0 +1,2306 @@
+{
+ "generated_by": "qa/mbt/mbt.py model",
+ "screens": {
+  "/": {
+   "controls": [
+    "link: Add creator",
+    "link: Creators & Revenue \u2192",
+    "link: Analysis running for Hearth & Crumb home bakers (D",
+    "link: Hearth & Crumb home bakers (DEMO)"
+   ]
+  },
+  "/audiences": {
+   "controls": [
+    "button: New creator or business",
+    "tr: Hearth & Crumb home bakers (DEMO) DEMO Hearth & Cr (NOT keyboard-focusable)",
+    "link: Hearth & Crumb home bakers (DEMO)"
+   ]
+  },
+  "/audiences?new=1": {
+   "controls": [
+    "button: New creator or business",
+    "tr: Hearth & Crumb home bakers (DEMO) DEMO Hearth & Cr (NOT keyboard-focusable)",
+    "link: Hearth & Crumb home bakers (DEMO)",
+    "button: Close",
+    "input: Creator or business name * [text] e.g. Maya Chen",
+    "select: Type [select-one] Creator Business Publisher Community Other",
+    "input: Audience name [text] Defaults to \u201c<name> audience\u201d",
+    "input: Niche [text] e.g. Sourdough home baking",
+    "textarea: Notes [textarea]",
+    "select:  [select-one] Platform",
+    "input:  [text] Handle",
+    "input:  [text] URL",
+    "input:  [text] Followers",
+    "button: Remove channel",
+    "button: + Add channel",
+    "button: Cancel",
+    "button: Create and add content (disabled)"
+   ]
+  },
+  "/intelligence": {
+   "controls": [
+    "select:  [select-one] Audience",
+    "link: Hearth & Crumb home bakers (DEMO)",
+    "link: Scoring patterns",
+    "link: Why your loaf is flat",
+    "link: Day 1-7 starter guide",
+    "link: Weekday sourdough schedule"
+   ]
+  },
+  "/opportunities": {
+   "controls": [
+    "button: All",
+    "button: Proposed",
+    "button: Approved",
+    "button: Testing",
+    "button: Validated",
+    "button: Rejected"
+   ]
+  },
+  "/validation": {
+   "controls": [
+    "button: Compare selected (0) (disabled)"
+   ]
+  },
+  "/library": {
+   "controls": [
+    "button: Back up database",
+    "input:  [search] Search",
+    "select:  [select-one] Type",
+    "select:  [select-one] Audience",
+    "link: Instagram comments export (DEMO)",
+    "link: Instagram post analytics (DEMO)",
+    "link: Newsletter issue 42 (DEMO)",
+    "link: Reel: why starters collapse (DEMO)",
+    "link: Day 1-7 starter guide",
+    "link: Why your loaf is flat",
+    "link: Weekday sourdough schedule",
+    "link: Scoring patterns",
+    "link: source",
+    "link: Hearth & Crumb home bakers (DEMO)"
+   ]
+  },
+  "/creators": {
+   "controls": [
+    "link: Add creator",
+    "link: Hearth & Crumb (DEMO)"
+   ]
+  },
+  "/settings": {
+   "controls": [
+    "input: Local model (Ollama) on this Mac ready R [radio] on",
+    "input: Claude (Anthropic API) external \u00b7 intern [radio] on",
+    "input: OpenAI API external \u00b7 internet not ready [radio] on",
+    "input: Rules engine (no AI model) on this Mac r [radio] on",
+    "select: Model used for analysis [select-one] qwen2.5vl:3b nomic-embed-text:latest llama3.2:3b q",
+    "select: Vision model for video frames & images ( [select-one] None \u2014 frames are stored but not described qwen2.5",
+    "input:  [text] Model to download",
+    "button: Download model",
+    "input: Group large comment sets by meaning Uses [checkbox] on",
+    "button: Download",
+    "input: Allow external AI providers When on, Cla [checkbox] on",
+    "input: Allow retrieving links I enter Turn off  [checkbox] on",
+    "input: Allow automated competitor research Sear [checkbox] on",
+    "select: Whisper model (runs locally) [select-one] tiny base small medium",
+    "input:  [password] Anthropic (Claude) API key",
+    "button: Save (disabled)",
+    "input:  [password] OpenAI API key",
+    "input:  [password] YouTube Data API key",
+    "input:  [password] Brave Search API key",
+    "input:  [password] Stripe restricted key (read-only)",
+    "input:  [password] Gumroad access token",
+    "input:  [password] Shopify Admin API token",
+    "input:  [password] Lemon Squeezy API key",
+    "input:  [number] Problem frequency",
+    "input:  [number] Commercial intent",
+    "input:  [number] Evidence quality",
+    "input:  [number] Audience\u2013product fit",
+    "input:  [number] Distribution fit",
+    "input:  [number] Competitive room",
+    "input:  [number] Delivery feasibility",
+    "input:  [number] Low production & support cost",
+    "input:  [number] Gross margin potential",
+    "input:  [number] Repeat / recurring potential",
+    "input:  [number] Easy to test quickly",
+    "button: Save weights",
+    "button: Automatic",
+    "button: Light",
+    "button: Dark",
+    "button: Remove demo project"
+   ]
+  },
+  "/audiences/aud_6f6b7df50b82467c/sources": {
+   "controls": [
+    "link: Audience Research",
+    "link: Overview",
+    "link: Content & sources",
+    "link: Audience problems",
+    "link: Commercial signals",
+    "link: Opportunities",
+    "link: Experiments",
+    "link: Products",
+    "link: Reports",
+    "button: Upload files",
+    "button: Add links",
+    "button: Paste text",
+    "div.dropzone: Drop files here or click to choose Text, Markdown, (NOT keyboard-focusable)",
+    "select: Platform YouTube TikTok Instagram Facebo [select-one] YouTube TikTok Instagram Facebook X LinkedIn Reddi",
+    "select: Whose words? The creator's content The a [select-one] The creator's content The audience's words (survey",
+    "button: Import files (disabled)",
+    "link: Go to analysis \u2192",
+    "tr: Instagram comments export (DEMO) Instagram \u00b7 file  (NOT keyboard-focusable)",
+    "tr: Instagram post analytics (DEMO) Instagram \u00b7 file \u00b7 (NOT keyboard-focusable)",
+    "tr: Newsletter issue 42 (DEMO) Newsletter \u00b7 file \u00b7 875 (NOT keyboard-focusable)",
+    "tr: Reel: why starters collapse (DEMO) Instagram \u00b7 fil (NOT keyboard-focusable)"
+   ]
+  },
+  "/audiences/aud_6f6b7df50b82467c/problems": {
+   "controls": [
+    "link: Audience Research",
+    "link: Overview",
+    "link: Content & sources",
+    "link: Audience problems",
+    "link: Commercial signals",
+    "link: Opportunities",
+    "link: Experiments",
+    "link: Products",
+    "link: Reports"
+   ]
+  },
+  "/audiences/aud_6f6b7df50b82467c/signals": {
+   "controls": [
+    "link: Audience Research",
+    "link: Overview",
+    "link: Content & sources",
+    "link: Audience problems",
+    "link: Commercial signals",
+    "link: Opportunities",
+    "link: Experiments",
+    "link: Products",
+    "link: Reports",
+    "link: Scoring patterns",
+    "link: Why your loaf is flat",
+    "link: Day 1-7 starter guide",
+    "link: Weekday sourdough schedule"
+   ]
+  },
+  "/audiences/aud_6f6b7df50b82467c/opportunities": {
+   "controls": [
+    "link: Audience Research",
+    "link: Overview",
+    "link: Content & sources",
+    "link: Audience problems",
+    "link: Commercial signals",
+    "link: Opportunities",
+    "link: Experiments",
+    "link: Products",
+    "link: Reports",
+    "button: All",
+    "button: Proposed",
+    "button: Approved",
+    "button: Testing",
+    "button: Validated",
+    "button: Rejected",
+    "link: Go to analysis"
+   ]
+  },
+  "/audiences/aud_6f6b7df50b82467c/experiments": {
+   "controls": [
+    "link: Audience Research",
+    "link: Overview",
+    "link: Content & sources",
+    "link: Audience problems",
+    "link: Commercial signals",
+    "link: Opportunities",
+    "link: Experiments",
+    "link: Products",
+    "link: Reports"
+   ]
+  },
+  "/audiences/aud_6f6b7df50b82467c/products": {
+   "controls": [
+    "link: Audience Research",
+    "link: Overview",
+    "link: Content & sources",
+    "link: Audience problems",
+    "link: Commercial signals",
+    "link: Opportunities",
+    "link: Experiments",
+    "link: Products",
+    "link: Reports"
+   ]
+  },
+  "/audiences/aud_6f6b7df50b82467c/reports": {
+   "controls": [
+    "link: Audience Research",
+    "link: Overview",
+    "link: Content & sources",
+    "link: Audience problems",
+    "link: Commercial signals",
+    "link: Opportunities",
+    "link: Experiments",
+    "link: Products",
+    "link: Reports",
+    "button: Generate report (disabled)",
+    "link: go to analysis"
+   ]
+  },
+  "/intelligence/aud_6f6b7df50b82467c": {
+   "controls": [
+    "select:  [select-one] Audience",
+    "link: Hearth & Crumb home bakers (DEMO)",
+    "link: Scoring patterns",
+    "link: Why your loaf is flat",
+    "link: Day 1-7 starter guide",
+    "link: Weekday sourdough schedule"
+   ]
+  },
+  "/creators/org_6ef45527379d4c54": {
+   "controls": [
+    "link: Creators & Revenue",
+    "button: edit",
+    "link: Hearth & Crumb home bakers (DEMO)",
+    "link: Creator view \u2197",
+    "link: Download for creator",
+    "input:  [date] From",
+    "input:  [date] To",
+    "link: CSV",
+    "link: PDF",
+    "summary: How these numbers are calculated",
+    "input: Creator share (%) [number] 70",
+    "select: Split base [select-one] Contribution (after fees and shared costs) Net sal",
+    "input: Start [date]",
+    "input: End [date]",
+    "input: Carry losses forward \u2014 a loss on one pro [checkbox] on",
+    "input: Minimum guarantee ($/month) [number] none",
+    "input: Guaranteed months [number] open-ended",
+    "input: Notes [text] e.g. signed agreement dated\u2026",
+    "button: Save deal",
+    "input:  [date] Date",
+    "input:  [number] Amount",
+    "input:  [text] Reference",
+    "button: Record payout (disabled)"
+   ]
+  }
+ },
+ "screen_count": 18,
+ "control_count": 209,
+ "api_routes": [
+  {
+   "method": "POST",
+   "path": "/api/demo",
+   "file": "backend/app/demo.py"
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/demo",
+   "file": "backend/app/demo.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/health",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/system",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "PUT",
+   "path": "/api/settings",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "PUT",
+   "path": "/api/secrets/{name}",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/models/presets",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "POST",
+   "path": "/api/models/pull",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/platforms",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "POST",
+   "path": "/api/detect",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/dashboard",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/audiences",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "POST",
+   "path": "/api/audiences",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/audiences/{aid}",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "PATCH",
+   "path": "/api/audiences/{aid}",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/audiences/{aid}",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "POST",
+   "path": "/api/audiences/{aid}/channels",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "PATCH",
+   "path": "/api/channels/{cid}",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/channels/{cid}",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/audiences/{aid}/sources",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "POST",
+   "path": "/api/audiences/{aid}/sources/urls",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "POST",
+   "path": "/api/audiences/{aid}/sources/text",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "POST",
+   "path": "/api/audiences/{aid}/sources/upload",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/sources/{sid}",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "POST",
+   "path": "/api/sources/{sid}/reprocess",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/sources/{sid}",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/content/{cid}",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/frames/{fid}/image",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "POST",
+   "path": "/api/audiences/{aid}/analyze",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/audiences/{aid}/intelligence",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/audiences/{aid}/analyses",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/evidence/{eid}",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/jobs",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/jobs/{jid}",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "POST",
+   "path": "/api/jobs/{jid}/cancel",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "POST",
+   "path": "/api/jobs/{jid}/retry",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/library",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "POST",
+   "path": "/api/backup",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/audiences/{aid}/export",
+   "file": "backend/app/routers/core.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/opportunities",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/opportunities/{oid}",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "PATCH",
+   "path": "/api/opportunities/{oid}",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/audiences/{aid}/competitors",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "POST",
+   "path": "/api/audiences/{aid}/competitors",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/competitors/{cid}",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "POST",
+   "path": "/api/opportunities/{oid}/research",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/experiments",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "POST",
+   "path": "/api/experiments",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/experiments/{xid}",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "PATCH",
+   "path": "/api/experiments/{xid}",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/experiments/{xid}",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "POST",
+   "path": "/api/experiments/{xid}/events",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/events/{eid}",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/orders/{oid}",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "POST",
+   "path": "/api/experiments/{xid}/import",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "POST",
+   "path": "/api/experiments/{xid}/decision",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/experiments-compare",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/asset-kinds",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "POST",
+   "path": "/api/assets/generate",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/assets",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/assets/{aid}",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "PATCH",
+   "path": "/api/assets/{aid}",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "POST",
+   "path": "/api/assets/{aid}/approve",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/assets/{aid}",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/assets/{aid}/preview",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/assets/{aid}/export",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "POST",
+   "path": "/api/audiences/{aid}/reports",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/audiences/{aid}/reports",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/reports/{rid}/{key}",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/creators",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "PATCH",
+   "path": "/api/creators/{org_id}",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "POST",
+   "path": "/api/creators/{org_id}/deal",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/creators/{org_id}/statement",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/creators/{org_id}/statement.csv",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "POST",
+   "path": "/api/creators/{org_id}/payouts",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/payouts/{pid}",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/products",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "POST",
+   "path": "/api/products",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/products/{pid}",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "PATCH",
+   "path": "/api/products/{pid}",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "POST",
+   "path": "/api/products/{pid}/approve",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "POST",
+   "path": "/api/products/{pid}/launch",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "POST",
+   "path": "/api/products/{pid}/sales",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "POST",
+   "path": "/api/products/{pid}/sales/import",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/sales/{sid}",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "POST",
+   "path": "/api/products/{pid}/costs",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/costs/{cid}",
+   "file": "backend/app/routers/monetize.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/payouts/due",
+   "file": "backend/app/routers/money.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/payouts/export.csv",
+   "file": "backend/app/routers/money.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/creators/{org_id}/statement.pdf",
+   "file": "backend/app/routers/money.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/creators/{org_id}/portal",
+   "file": "backend/app/routers/money.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/products/{pid}/next-tests",
+   "file": "backend/app/routers/money.py"
+  },
+  {
+   "method": "GET",
+   "path": "/api/optimize",
+   "file": "backend/app/routers/money.py"
+  },
+  {
+   "method": "PUT",
+   "path": "/api/products/{pid}/sync",
+   "file": "backend/app/routers/money.py"
+  },
+  {
+   "method": "POST",
+   "path": "/api/products/{pid}/sync",
+   "file": "backend/app/routers/money.py"
+  }
+ ],
+ "api_route_count": 95,
+ "machines": {
+  "product": {
+   "states": [
+    "draft",
+    "approved",
+    "launched",
+    "paused",
+    "retired"
+   ],
+   "initial": "draft",
+   "terminal": [],
+   "guards": {
+    "assets_ok": "every asset of its opportunity is approved and it has an https checkout link (else REFUSE)",
+    "key": "a Stripe key is saved (else REFUSE: 'Add your Stripe key in Settings first')"
+   },
+   "transitions": [
+    {
+     "from": "draft",
+     "action": "approve",
+     "expect": "approved?assets_ok"
+    },
+    {
+     "from": "approved",
+     "action": "approve",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "launched",
+     "action": "approve",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "paused",
+     "action": "approve",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "retired",
+     "action": "approve",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "draft",
+     "action": "approve_incomplete",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "approved",
+     "action": "approve_incomplete",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "launched",
+     "action": "approve_incomplete",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "paused",
+     "action": "approve_incomplete",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "retired",
+     "action": "approve_incomplete",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "draft",
+     "action": "launch",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "approved",
+     "action": "launch",
+     "expect": "launched"
+    },
+    {
+     "from": "launched",
+     "action": "launch",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "paused",
+     "action": "launch",
+     "expect": "launched"
+    },
+    {
+     "from": "retired",
+     "action": "launch",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "draft",
+     "action": "pause",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "approved",
+     "action": "pause",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "launched",
+     "action": "pause",
+     "expect": "paused"
+    },
+    {
+     "from": "paused",
+     "action": "pause",
+     "expect": "paused"
+    },
+    {
+     "from": "retired",
+     "action": "pause",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "draft",
+     "action": "retire",
+     "expect": "retired"
+    },
+    {
+     "from": "approved",
+     "action": "retire",
+     "expect": "retired"
+    },
+    {
+     "from": "launched",
+     "action": "retire",
+     "expect": "retired"
+    },
+    {
+     "from": "paused",
+     "action": "retire",
+     "expect": "retired"
+    },
+    {
+     "from": "retired",
+     "action": "retire",
+     "expect": "retired"
+    },
+    {
+     "from": "draft",
+     "action": "reopen",
+     "expect": "draft"
+    },
+    {
+     "from": "approved",
+     "action": "reopen",
+     "expect": "draft"
+    },
+    {
+     "from": "launched",
+     "action": "reopen",
+     "expect": "draft"
+    },
+    {
+     "from": "paused",
+     "action": "reopen",
+     "expect": "draft"
+    },
+    {
+     "from": "retired",
+     "action": "reopen",
+     "expect": "draft"
+    },
+    {
+     "from": "draft",
+     "action": "edit_price",
+     "expect": "draft"
+    },
+    {
+     "from": "approved",
+     "action": "edit_price",
+     "expect": "draft"
+    },
+    {
+     "from": "launched",
+     "action": "edit_price",
+     "expect": "draft"
+    },
+    {
+     "from": "paused",
+     "action": "edit_price",
+     "expect": "draft"
+    },
+    {
+     "from": "retired",
+     "action": "edit_price",
+     "expect": "retired"
+    },
+    {
+     "from": "draft",
+     "action": "edit_notes",
+     "expect": "draft"
+    },
+    {
+     "from": "approved",
+     "action": "edit_notes",
+     "expect": "approved"
+    },
+    {
+     "from": "launched",
+     "action": "edit_notes",
+     "expect": "launched"
+    },
+    {
+     "from": "paused",
+     "action": "edit_notes",
+     "expect": "paused"
+    },
+    {
+     "from": "retired",
+     "action": "edit_notes",
+     "expect": "retired"
+    },
+    {
+     "from": "draft",
+     "action": "add_sale",
+     "expect": "draft"
+    },
+    {
+     "from": "approved",
+     "action": "add_sale",
+     "expect": "approved"
+    },
+    {
+     "from": "launched",
+     "action": "add_sale",
+     "expect": "launched"
+    },
+    {
+     "from": "paused",
+     "action": "add_sale",
+     "expect": "paused"
+    },
+    {
+     "from": "retired",
+     "action": "add_sale",
+     "expect": "retired"
+    },
+    {
+     "from": "draft",
+     "action": "add_sale_dup",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "approved",
+     "action": "add_sale_dup",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "launched",
+     "action": "add_sale_dup",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "paused",
+     "action": "add_sale_dup",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "retired",
+     "action": "add_sale_dup",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "draft",
+     "action": "add_sale_bad_refund",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "approved",
+     "action": "add_sale_bad_refund",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "launched",
+     "action": "add_sale_bad_refund",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "paused",
+     "action": "add_sale_bad_refund",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "retired",
+     "action": "add_sale_bad_refund",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "draft",
+     "action": "add_sale_fraction_cents",
+     "expect": "draft"
+    },
+    {
+     "from": "approved",
+     "action": "add_sale_fraction_cents",
+     "expect": "approved"
+    },
+    {
+     "from": "launched",
+     "action": "add_sale_fraction_cents",
+     "expect": "launched"
+    },
+    {
+     "from": "paused",
+     "action": "add_sale_fraction_cents",
+     "expect": "paused"
+    },
+    {
+     "from": "retired",
+     "action": "add_sale_fraction_cents",
+     "expect": "retired"
+    },
+    {
+     "from": "draft",
+     "action": "import_csv",
+     "expect": "draft"
+    },
+    {
+     "from": "approved",
+     "action": "import_csv",
+     "expect": "approved"
+    },
+    {
+     "from": "launched",
+     "action": "import_csv",
+     "expect": "launched"
+    },
+    {
+     "from": "paused",
+     "action": "import_csv",
+     "expect": "paused"
+    },
+    {
+     "from": "retired",
+     "action": "import_csv",
+     "expect": "retired"
+    },
+    {
+     "from": "draft",
+     "action": "del_sale",
+     "expect": "draft"
+    },
+    {
+     "from": "approved",
+     "action": "del_sale",
+     "expect": "approved"
+    },
+    {
+     "from": "launched",
+     "action": "del_sale",
+     "expect": "launched"
+    },
+    {
+     "from": "paused",
+     "action": "del_sale",
+     "expect": "paused"
+    },
+    {
+     "from": "retired",
+     "action": "del_sale",
+     "expect": "retired"
+    },
+    {
+     "from": "draft",
+     "action": "add_cost",
+     "expect": "draft"
+    },
+    {
+     "from": "approved",
+     "action": "add_cost",
+     "expect": "approved"
+    },
+    {
+     "from": "launched",
+     "action": "add_cost",
+     "expect": "launched"
+    },
+    {
+     "from": "paused",
+     "action": "add_cost",
+     "expect": "paused"
+    },
+    {
+     "from": "retired",
+     "action": "add_cost",
+     "expect": "retired"
+    },
+    {
+     "from": "draft",
+     "action": "del_cost",
+     "expect": "draft"
+    },
+    {
+     "from": "approved",
+     "action": "del_cost",
+     "expect": "approved"
+    },
+    {
+     "from": "launched",
+     "action": "del_cost",
+     "expect": "launched"
+    },
+    {
+     "from": "paused",
+     "action": "del_cost",
+     "expect": "paused"
+    },
+    {
+     "from": "retired",
+     "action": "del_cost",
+     "expect": "retired"
+    },
+    {
+     "from": "draft",
+     "action": "sync",
+     "expect": "s?key"
+    },
+    {
+     "from": "approved",
+     "action": "sync",
+     "expect": "s?key"
+    },
+    {
+     "from": "launched",
+     "action": "sync",
+     "expect": "s?key"
+    },
+    {
+     "from": "paused",
+     "action": "sync",
+     "expect": "s?key"
+    },
+    {
+     "from": "retired",
+     "action": "sync",
+     "expect": "s?key"
+    }
+   ]
+  },
+  "opportunity": {
+   "states": [
+    "proposed",
+    "approved",
+    "testing",
+    "validated",
+    "rejected"
+   ],
+   "initial": "proposed",
+   "terminal": [],
+   "guards": {
+    "no_product": "an opportunity that already has a product can't be rejected (the UI hides Reject then); REFUSE"
+   },
+   "transitions": [
+    {
+     "from": "proposed",
+     "action": "approve",
+     "expect": "approved"
+    },
+    {
+     "from": "approved",
+     "action": "approve",
+     "expect": "approved"
+    },
+    {
+     "from": "testing",
+     "action": "approve",
+     "expect": "approved"
+    },
+    {
+     "from": "validated",
+     "action": "approve",
+     "expect": "approved"
+    },
+    {
+     "from": "rejected",
+     "action": "approve",
+     "expect": "approved"
+    },
+    {
+     "from": "proposed",
+     "action": "reject",
+     "expect": "rejected?no_product"
+    },
+    {
+     "from": "approved",
+     "action": "reject",
+     "expect": "rejected?no_product"
+    },
+    {
+     "from": "testing",
+     "action": "reject",
+     "expect": "rejected?no_product"
+    },
+    {
+     "from": "validated",
+     "action": "reject",
+     "expect": "rejected?no_product"
+    },
+    {
+     "from": "rejected",
+     "action": "reject",
+     "expect": "rejected"
+    },
+    {
+     "from": "proposed",
+     "action": "restore",
+     "expect": "proposed"
+    },
+    {
+     "from": "approved",
+     "action": "restore",
+     "expect": "proposed"
+    },
+    {
+     "from": "testing",
+     "action": "restore",
+     "expect": "proposed"
+    },
+    {
+     "from": "validated",
+     "action": "restore",
+     "expect": "proposed"
+    },
+    {
+     "from": "rejected",
+     "action": "restore",
+     "expect": "proposed"
+    },
+    {
+     "from": "proposed",
+     "action": "mark_validated",
+     "expect": "validated"
+    },
+    {
+     "from": "approved",
+     "action": "mark_validated",
+     "expect": "validated"
+    },
+    {
+     "from": "testing",
+     "action": "mark_validated",
+     "expect": "validated"
+    },
+    {
+     "from": "validated",
+     "action": "mark_validated",
+     "expect": "validated"
+    },
+    {
+     "from": "rejected",
+     "action": "mark_validated",
+     "expect": "validated"
+    },
+    {
+     "from": "proposed",
+     "action": "create_experiment",
+     "expect": "testing"
+    },
+    {
+     "from": "approved",
+     "action": "create_experiment",
+     "expect": "testing"
+    },
+    {
+     "from": "testing",
+     "action": "create_experiment",
+     "expect": "testing"
+    },
+    {
+     "from": "validated",
+     "action": "create_experiment",
+     "expect": "validated"
+    },
+    {
+     "from": "rejected",
+     "action": "create_experiment",
+     "expect": "rejected"
+    },
+    {
+     "from": "proposed",
+     "action": "create_product",
+     "expect": "proposed"
+    },
+    {
+     "from": "approved",
+     "action": "create_product",
+     "expect": "approved"
+    },
+    {
+     "from": "testing",
+     "action": "create_product",
+     "expect": "testing"
+    },
+    {
+     "from": "validated",
+     "action": "create_product",
+     "expect": "validated"
+    },
+    {
+     "from": "rejected",
+     "action": "create_product",
+     "expect": "rejected"
+    },
+    {
+     "from": "proposed",
+     "action": "rescore",
+     "expect": "proposed"
+    },
+    {
+     "from": "approved",
+     "action": "rescore",
+     "expect": "approved"
+    },
+    {
+     "from": "testing",
+     "action": "rescore",
+     "expect": "testing"
+    },
+    {
+     "from": "validated",
+     "action": "rescore",
+     "expect": "validated"
+    },
+    {
+     "from": "rejected",
+     "action": "rescore",
+     "expect": "rejected"
+    },
+    {
+     "from": "proposed",
+     "action": "scenario",
+     "expect": "proposed"
+    },
+    {
+     "from": "approved",
+     "action": "scenario",
+     "expect": "approved"
+    },
+    {
+     "from": "testing",
+     "action": "scenario",
+     "expect": "testing"
+    },
+    {
+     "from": "validated",
+     "action": "scenario",
+     "expect": "validated"
+    },
+    {
+     "from": "rejected",
+     "action": "scenario",
+     "expect": "rejected"
+    },
+    {
+     "from": "proposed",
+     "action": "add_competitor",
+     "expect": "proposed"
+    },
+    {
+     "from": "approved",
+     "action": "add_competitor",
+     "expect": "approved"
+    },
+    {
+     "from": "testing",
+     "action": "add_competitor",
+     "expect": "testing"
+    },
+    {
+     "from": "validated",
+     "action": "add_competitor",
+     "expect": "validated"
+    },
+    {
+     "from": "rejected",
+     "action": "add_competitor",
+     "expect": "rejected"
+    }
+   ]
+  },
+  "experiment": {
+   "states": [
+    "draft",
+    "running",
+    "completed",
+    "deleted"
+   ],
+   "initial": "draft",
+   "terminal": [
+    "deleted"
+   ],
+   "guards": {},
+   "transitions": [
+    {
+     "from": "draft",
+     "action": "set_running",
+     "expect": "running"
+    },
+    {
+     "from": "running",
+     "action": "set_running",
+     "expect": "running"
+    },
+    {
+     "from": "completed",
+     "action": "set_running",
+     "expect": "running"
+    },
+    {
+     "from": "deleted",
+     "action": "set_running",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "draft",
+     "action": "set_draft",
+     "expect": "draft"
+    },
+    {
+     "from": "running",
+     "action": "set_draft",
+     "expect": "draft"
+    },
+    {
+     "from": "completed",
+     "action": "set_draft",
+     "expect": "draft"
+    },
+    {
+     "from": "deleted",
+     "action": "set_draft",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "draft",
+     "action": "add_event",
+     "expect": "draft"
+    },
+    {
+     "from": "running",
+     "action": "add_event",
+     "expect": "running"
+    },
+    {
+     "from": "completed",
+     "action": "add_event",
+     "expect": "completed"
+    },
+    {
+     "from": "deleted",
+     "action": "add_event",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "draft",
+     "action": "add_event_empty",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "running",
+     "action": "add_event_empty",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "completed",
+     "action": "add_event_empty",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "deleted",
+     "action": "add_event_empty",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "draft",
+     "action": "import_csv",
+     "expect": "draft"
+    },
+    {
+     "from": "running",
+     "action": "import_csv",
+     "expect": "running"
+    },
+    {
+     "from": "completed",
+     "action": "import_csv",
+     "expect": "completed"
+    },
+    {
+     "from": "deleted",
+     "action": "import_csv",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "draft",
+     "action": "del_event",
+     "expect": "draft"
+    },
+    {
+     "from": "running",
+     "action": "del_event",
+     "expect": "running"
+    },
+    {
+     "from": "completed",
+     "action": "del_event",
+     "expect": "completed"
+    },
+    {
+     "from": "deleted",
+     "action": "del_event",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "draft",
+     "action": "decide_go",
+     "expect": "completed"
+    },
+    {
+     "from": "running",
+     "action": "decide_go",
+     "expect": "completed"
+    },
+    {
+     "from": "completed",
+     "action": "decide_go",
+     "expect": "completed"
+    },
+    {
+     "from": "deleted",
+     "action": "decide_go",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "draft",
+     "action": "decide_revise",
+     "expect": "completed"
+    },
+    {
+     "from": "running",
+     "action": "decide_revise",
+     "expect": "completed"
+    },
+    {
+     "from": "completed",
+     "action": "decide_revise",
+     "expect": "completed"
+    },
+    {
+     "from": "deleted",
+     "action": "decide_revise",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "draft",
+     "action": "decide_stop",
+     "expect": "completed"
+    },
+    {
+     "from": "running",
+     "action": "decide_stop",
+     "expect": "completed"
+    },
+    {
+     "from": "completed",
+     "action": "decide_stop",
+     "expect": "completed"
+    },
+    {
+     "from": "deleted",
+     "action": "decide_stop",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "draft",
+     "action": "bad_checkout_link",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "running",
+     "action": "bad_checkout_link",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "completed",
+     "action": "bad_checkout_link",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "deleted",
+     "action": "bad_checkout_link",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "draft",
+     "action": "delete",
+     "expect": "deleted"
+    },
+    {
+     "from": "running",
+     "action": "delete",
+     "expect": "deleted"
+    },
+    {
+     "from": "completed",
+     "action": "delete",
+     "expect": "deleted"
+    },
+    {
+     "from": "deleted",
+     "action": "delete",
+     "expect": "deleted"
+    }
+   ]
+  },
+  "asset": {
+   "states": [
+    "draft_flagged",
+    "draft_clean",
+    "approved",
+    "deleted"
+   ],
+   "initial": "draft_*",
+   "terminal": [
+    "deleted"
+   ],
+   "guards": {
+    "no_flags": "re-approving an approved draft that has flagged claims needs the reviewer's confirmation again (else REFUSE)"
+   },
+   "transitions": [
+    {
+     "from": "draft_flagged",
+     "action": "approve",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "draft_clean",
+     "action": "approve",
+     "expect": "approved"
+    },
+    {
+     "from": "approved",
+     "action": "approve",
+     "expect": "approved?no_flags"
+    },
+    {
+     "from": "deleted",
+     "action": "approve",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "draft_flagged",
+     "action": "approve_confirmed",
+     "expect": "approved"
+    },
+    {
+     "from": "draft_clean",
+     "action": "approve_confirmed",
+     "expect": "approved"
+    },
+    {
+     "from": "approved",
+     "action": "approve_confirmed",
+     "expect": "approved"
+    },
+    {
+     "from": "deleted",
+     "action": "approve_confirmed",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "draft_flagged",
+     "action": "unapprove",
+     "expect": "draft_flagged"
+    },
+    {
+     "from": "draft_clean",
+     "action": "unapprove",
+     "expect": "draft_clean"
+    },
+    {
+     "from": "approved",
+     "action": "unapprove",
+     "expect": "draft_*"
+    },
+    {
+     "from": "deleted",
+     "action": "unapprove",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "draft_flagged",
+     "action": "edit_clean",
+     "expect": "draft_clean"
+    },
+    {
+     "from": "draft_clean",
+     "action": "edit_clean",
+     "expect": "draft_clean"
+    },
+    {
+     "from": "approved",
+     "action": "edit_clean",
+     "expect": "draft_clean"
+    },
+    {
+     "from": "deleted",
+     "action": "edit_clean",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "draft_flagged",
+     "action": "edit_claim",
+     "expect": "draft_flagged"
+    },
+    {
+     "from": "draft_clean",
+     "action": "edit_claim",
+     "expect": "draft_flagged"
+    },
+    {
+     "from": "approved",
+     "action": "edit_claim",
+     "expect": "draft_flagged"
+    },
+    {
+     "from": "deleted",
+     "action": "edit_claim",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "draft_flagged",
+     "action": "export",
+     "expect": "draft_flagged"
+    },
+    {
+     "from": "draft_clean",
+     "action": "export",
+     "expect": "draft_clean"
+    },
+    {
+     "from": "approved",
+     "action": "export",
+     "expect": "approved"
+    },
+    {
+     "from": "deleted",
+     "action": "export",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "draft_flagged",
+     "action": "preview",
+     "expect": "draft_flagged"
+    },
+    {
+     "from": "draft_clean",
+     "action": "preview",
+     "expect": "draft_clean"
+    },
+    {
+     "from": "approved",
+     "action": "preview",
+     "expect": "approved"
+    },
+    {
+     "from": "deleted",
+     "action": "preview",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "draft_flagged",
+     "action": "delete",
+     "expect": "deleted"
+    },
+    {
+     "from": "draft_clean",
+     "action": "delete",
+     "expect": "deleted"
+    },
+    {
+     "from": "approved",
+     "action": "delete",
+     "expect": "deleted"
+    },
+    {
+     "from": "deleted",
+     "action": "delete",
+     "expect": "deleted"
+    }
+   ]
+  },
+  "deal": {
+   "states": [
+    "none",
+    "active"
+   ],
+   "initial": "none",
+   "terminal": [],
+   "guards": {},
+   "transitions": [
+    {
+     "from": "none",
+     "action": "set_deal",
+     "expect": "active"
+    },
+    {
+     "from": "active",
+     "action": "set_deal",
+     "expect": "active"
+    },
+    {
+     "from": "none",
+     "action": "set_deal_stale",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "active",
+     "action": "set_deal_stale",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "none",
+     "action": "set_deal_bad_dates",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "active",
+     "action": "set_deal_bad_dates",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "none",
+     "action": "set_deal_bad_pct",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "active",
+     "action": "set_deal_bad_pct",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "none",
+     "action": "payout",
+     "expect": "none"
+    },
+    {
+     "from": "active",
+     "action": "payout",
+     "expect": "active"
+    },
+    {
+     "from": "none",
+     "action": "payout_bad",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "active",
+     "action": "payout_bad",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "none",
+     "action": "del_payout",
+     "expect": "none"
+    },
+    {
+     "from": "active",
+     "action": "del_payout",
+     "expect": "active"
+    },
+    {
+     "from": "none",
+     "action": "email_ok",
+     "expect": "none"
+    },
+    {
+     "from": "active",
+     "action": "email_ok",
+     "expect": "active"
+    },
+    {
+     "from": "none",
+     "action": "email_bad",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "active",
+     "action": "email_bad",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "none",
+     "action": "period_statement",
+     "expect": "none"
+    },
+    {
+     "from": "active",
+     "action": "period_statement",
+     "expect": "active"
+    }
+   ]
+  },
+  "analysis_job": {
+   "states": [
+    "idle",
+    "active",
+    "done",
+    "failed",
+    "cancelled"
+   ],
+   "initial": "idle",
+   "terminal": [],
+   "guards": {
+    "engine": "the selected AI engine is reachable (else REFUSE 400 with a plain reason)"
+   },
+   "transitions": [
+    {
+     "from": "idle",
+     "action": "analyze",
+     "expect": "active?engine"
+    },
+    {
+     "from": "active",
+     "action": "analyze",
+     "expect": "active"
+    },
+    {
+     "from": "done",
+     "action": "analyze",
+     "expect": "active?engine"
+    },
+    {
+     "from": "failed",
+     "action": "analyze",
+     "expect": "active?engine"
+    },
+    {
+     "from": "cancelled",
+     "action": "analyze",
+     "expect": "active?engine"
+    },
+    {
+     "from": "idle",
+     "action": "cancel",
+     "expect": "idle"
+    },
+    {
+     "from": "active",
+     "action": "cancel",
+     "expect": "cancelled"
+    },
+    {
+     "from": "done",
+     "action": "cancel",
+     "expect": "done"
+    },
+    {
+     "from": "failed",
+     "action": "cancel",
+     "expect": "failed"
+    },
+    {
+     "from": "cancelled",
+     "action": "cancel",
+     "expect": "cancelled"
+    },
+    {
+     "from": "idle",
+     "action": "retry",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "active",
+     "action": "retry",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "done",
+     "action": "retry",
+     "expect": "REFUSE"
+    },
+    {
+     "from": "failed",
+     "action": "retry",
+     "expect": "active"
+    },
+    {
+     "from": "cancelled",
+     "action": "retry",
+     "expect": "active"
+    },
+    {
+     "from": "idle",
+     "action": "wait",
+     "expect": "idle"
+    },
+    {
+     "from": "active",
+     "action": "wait",
+     "expect": "done|failed"
+    },
+    {
+     "from": "done",
+     "action": "wait",
+     "expect": "done"
+    },
+    {
+     "from": "failed",
+     "action": "wait",
+     "expect": "failed"
+    },
+    {
+     "from": "cancelled",
+     "action": "wait",
+     "expect": "cancelled"
+    },
+    {
+     "from": "idle",
+     "action": "restart_server",
+     "expect": "idle"
+    },
+    {
+     "from": "active",
+     "action": "restart_server",
+     "expect": "active|done|failed"
+    },
+    {
+     "from": "done",
+     "action": "restart_server",
+     "expect": "done"
+    },
+    {
+     "from": "failed",
+     "action": "restart_server",
+     "expect": "failed"
+    },
+    {
+     "from": "cancelled",
+     "action": "restart_server",
+     "expect": "cancelled"
+    },
+    {
+     "from": "idle",
+     "action": "engine_down",
+     "expect": "idle"
+    },
+    {
+     "from": "active",
+     "action": "engine_down",
+     "expect": "active"
+    },
+    {
+     "from": "done",
+     "action": "engine_down",
+     "expect": "done"
+    },
+    {
+     "from": "failed",
+     "action": "engine_down",
+     "expect": "failed"
+    },
+    {
+     "from": "cancelled",
+     "action": "engine_down",
+     "expect": "cancelled"
+    },
+    {
+     "from": "idle",
+     "action": "engine_up",
+     "expect": "idle"
+    },
+    {
+     "from": "active",
+     "action": "engine_up",
+     "expect": "active"
+    },
+    {
+     "from": "done",
+     "action": "engine_up",
+     "expect": "done"
+    },
+    {
+     "from": "failed",
+     "action": "engine_up",
+     "expect": "failed"
+    },
+    {
+     "from": "cancelled",
+     "action": "engine_up",
+     "expect": "cancelled"
+    },
+    {
+     "from": "idle",
+     "action": "engine_garbage",
+     "expect": "idle"
+    },
+    {
+     "from": "active",
+     "action": "engine_garbage",
+     "expect": "active"
+    },
+    {
+     "from": "done",
+     "action": "engine_garbage",
+     "expect": "done"
+    },
+    {
+     "from": "failed",
+     "action": "engine_garbage",
+     "expect": "failed"
+    },
+    {
+     "from": "cancelled",
+     "action": "engine_garbage",
+     "expect": "cancelled"
+    }
+   ]
+  }
+ },
+ "settings_factors": {
+  "provider": [
+   "ollama",
+   "rules",
+   "anthropic",
+   "openai"
+  ],
+  "allow_external_ai": [
+   false,
+   true
+  ],
+  "keys": [
+   "absent",
+   "present"
+  ],
+  "engine": [
+   "up",
+   "down",
+   "garbage"
+  ],
+  "allow_web_retrieval": [
+   true,
+   false
+  ],
+  "use_embeddings": [
+   true,
+   false
+  ],
+  "data": [
+   "empty",
+   "demo",
+   "demo+real"
+  ]
+ },
+ "session_actions": [
+  "back",
+  "forward",
+  "reload",
+  "second_tab_mutation",
+  "server_restart",
+  "network_slow",
+  "network_offline",
+  "engine_down",
+  "engine_up",
+  "close_reopen",
+  "rapid_repeat_click",
+  "keyboard_tab_enter",
+  "escape"
+ ],
+ "env_actions": [
+  "restart_server",
+  "restart_hard",
+  "engine_down",
+  "engine_up",
+  "engine_mixed",
+  "settings_toggle",
+  "keys_toggle",
+  "new_creator",
+  "new_product",
+  "delete_audience",
+  "load_demo",
+  "remove_demo",
+  "analyze",
+  "cancel_job",
+  "retry_job",
+  "generate_asset",
+  "add_text_source",
+  "add_url_source",
+  "delete_source",
+  "reprocess_source",
+  "report",
+  "backup",
+  "library",
+  "export_audience",
+  "rename_creator",
+  "same_name_creator",
+  "rapid_repeat_sale"
+ ],
+ "counts": {
+  "product": {
+   "states": 5,
+   "actions": 17,
+   "transitions": 85,
+   "refusals": 25
+  },
+  "opportunity": {
+   "states": 5,
+   "actions": 9,
+   "transitions": 45,
+   "refusals": 0
+  },
+  "experiment": {
+   "states": 4,
+   "actions": 11,
+   "transitions": 44,
+   "refusals": 16
+  },
+  "asset": {
+   "states": 4,
+   "actions": 8,
+   "transitions": 32,
+   "refusals": 8
+  },
+  "deal": {
+   "states": 2,
+   "actions": 10,
+   "transitions": 20,
+   "refusals": 10
+  },
+  "analysis_job": {
+   "states": 5,
+   "actions": 8,
+   "transitions": 40,
+   "refusals": 3
+  }
+ }
+}

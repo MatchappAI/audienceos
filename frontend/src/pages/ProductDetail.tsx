@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { del, patch, post, put, upload } from "../api";
 import { date, dateTime, money, today } from "../format";
-import { Demo, ErrorBox, Loading, Stat, Status, useApi, useAsync, useToast, V } from "../components/ui";
+import { Demo, ErrorBox, Loading, Stat, Status, useApi, useAsync, useLeaveGuard, useToast, V } from "../components/ui";
 
 function Setup({ p, reload }: { p: any; reload: () => void }) {
   const initial = () => ({ name: p.name, price: p.price ?? "", price_model: p.price_model, storefront: p.storefront || "", checkout_url: p.checkout_url || "", notes: p.notes || "" });
@@ -13,6 +13,7 @@ function Setup({ p, reload }: { p: any; reload: () => void }) {
   const toast = useToast();
   // Only fields changed on this page are sent, so saving here never reverts a change made in another window.
   const changed = Object.keys(f).filter((k) => String(f[k] ?? "") !== String(base[k] ?? ""));
+  useLeaveGuard(changed.length > 0);
   const save = async () => {
     if (!changed.length) { toast("No changes to save"); return; }
     const all: any = { ...f, price: f.price === "" ? null : Number(f.price), checkout_url: f.checkout_url || null, storefront: f.storefront || null };

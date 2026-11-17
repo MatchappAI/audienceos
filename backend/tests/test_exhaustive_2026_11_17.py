@@ -171,3 +171,20 @@ def test_csv_exports_neutralise_formulas(client):
     assert "'+SUM(1,1)" in st and "\n+SUM" not in st
     pay = client.get("/api/payouts/export.csv").text
     assert "'@SUM(A1)" in pay and ",@SUM" not in pay
+
+
+# M-10 (random seed 7, shrunk by hand to 3 orders): the creator share was taken from a float sum, so
+# 30% of 19 + 120.50 + 120.50 - 0.85 fee = 77.745 came out 77.74 (half-up says 77.75), and the statement, CSV, PDF,
+# portal and payout file all carried the short cent.
+def test_creator_share_is_exact_half_up_on_the_cent(client):
+    a, org = _org(client, "Cent off")
+    p = _product(client, a)
+    client.post(f"/api/creators/{org}/deal", json={"creator_share_pct": 30, "basis": "net_sales"})
+    for ref, amt, fee in (("s1", 19, 0.85), ("s2", 120.5, None), ("s3", 120.5, None)):
+        assert client.post(f"/api/products/{p['id']}/sales", json={"order_ref": ref, "amount": amt, "fee": fee}).status_code == 200
+    st = client.get(f"/api/creators/{org}/statement").json()
+    line = st["lines"][0]
+    assert line["split_base"] == 259.15 and line["creator_share"] == 77.75 and line["agency_share"] == 181.4
+    assert st["entitlement"]["earned"] == 77.75 and st["balance_owed"] == 77.75
+    client.post(f"/api/creators/{org}/deal", json={"creator_share_pct": 30, "basis": "net_sales", "loss_carry_forward": True})
+    assert client.get(f"/api/creators/{org}/statement").json()["totals"]["creator_share"] == 77.75

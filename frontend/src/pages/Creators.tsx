@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { del, patch, post } from "../api";
 import { date, money, today } from "../format";
-import { Demo, Empty, ErrorBox, Loading, Stat, Status, useApi, useAsync, useToast, V } from "../components/ui";
+import { Demo, Empty, ErrorBox, Loading, Stat, Status, useApi, useAsync, useLeaveGuard, useToast, V } from "../components/ui";
 
 export function ProductList({ audienceId }: { audienceId?: string }) {
   const { data, error, loading, reload } = useApi<any[]>(`/api/products${audienceId ? `?audience_id=${audienceId}` : ""}`);
@@ -100,6 +100,7 @@ function DealCard({ st, orgId, reload }: { st: any; orgId: string; reload: () =>
   const [basedOn, setBasedOn] = useState<string | null>(d?.id ?? null);
   const startEdit = () => { setF(fromDeal(d)); setBasedOn(d?.id ?? null); act.setError(null); setEdit(true); };
   const act = useAsync();
+  useLeaveGuard(edit && JSON.stringify(f) !== JSON.stringify(fromDeal(d)));
   const save = async () => {
     if (await act.run(() => post(`/api/creators/${orgId}/deal`, { ...f, replaces_deal_id: basedOn ?? "", creator_share_pct: Number(f.creator_share_pct), start_date: f.start_date || null, end_date: f.end_date || null, notes: f.notes || null,
       min_guarantee_monthly: f.min_guarantee_monthly === "" ? null : Number(f.min_guarantee_monthly), guarantee_months: f.guarantee_months === "" ? null : Number(f.guarantee_months) }))) { setEdit(false); reload(); }

@@ -117,6 +117,8 @@ class World:
         self.ref_n = 0
         self.keys = False
         self.state: dict[str, str] = {}  # last observed state per entity
+        self.occ: dict = {}
+        self.seed = getattr(rng, "_qa_seed", 0)
         self.dirty: set[str] = set()      # creators whose money may have changed since the last check
 
     # ---- HTTP with coverage ----
@@ -157,10 +159,15 @@ class World:
         self.s.wait_idle(120)
         aud = next(a for a in self.ok("GET", "/api/audiences") if a.get("is_demo"))
         if not self.ok("GET", "/api/opportunities", params={"audience_id": aud["id"]}):
-            self.e.mode("valid")
+            self.engine_ready()
             self.ok("POST", f"/api/audiences/{aud['id']}/analyze", json={})
             self.s.wait_idle(300)
         return aud
+
+    def engine_ready(self):
+        self.e.start()
+        self.e.mode("valid")
+        self.ok("PUT", "/api/settings", json={"values": {"ai_provider": "ollama"}})
 
     # ---- oracle: expected statement from the shadow model ----
     def expected_lines(self, org, deal):
@@ -275,7 +282,11 @@ class World:
         pdf = self.call("GET", f"/api/creators/{org_id}/statement.pdf")
         need(pdf.status_code == 200 and pdf.content[:4] == b"%PDF", "pdf", str(pdf.status_code))
         txt = pdf_text(pdf.content)
-        need(want in txt, "pdf-vs-screen", f"PDF has no '{want}' (balance)")
+        need(f"Balance owed to creator {want}" in txt, "pdf-vs-screen", f"PDF balance is not '{want}': "
+             + (re.search(r"Balance owed to creator (\S+)", txt) or [None, "?"])[1])
+        if st["deal"]:
+            tot_cs = f"${st['totals']['creator_share']:,.2f}"
+            need(tot_cs in txt, "pdf-vs-screen", f"PDF total creator share {tot_cs} missing")
         cl = self.ok("GET", "/api/creators")["creators"]
         me = next(c for c in cl if c["id"] == org_id)
         need(me["balance_owed"] == st["balance_owed"], "creators-list-vs-statement", f"{me['balance_owed']} vs {st['balance_owed']}")
@@ -341,14 +352,14 @@ class World:
             need(n == 0, "source-stuck", f"{n} sources still waiting with no job")
         self.checks += 1
 
-    def db_digest(self) -> dict:
+    def db_digest(self, skip_worker: bool = False) -> dict:
         """A hash per table of every stored row (minus timestamps the worker or a GET may touch)."""
         import hashlib
         out = {}
         with self.s.db() as c:
             tables = [r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")]
             for t in tables:
-                if t in ("jobs", "schema_migrations", "ai_runs"):
+                if t in ("jobs", "schema_migrations", "ai_runs") or (skip_worker and t in WORKER_TABLES):
                     continue
                 cols = [r[1] for r in c.execute(f"PRAGMA table_info({t})") if r[1] not in ("updated_at", "last_synced_at", "last_sync_json")]
                 h = hashlib.sha256()
@@ -366,6 +377,9 @@ class World:
         return out
 
 
+WORKER_TABLES = {"sources", "content_items", "comments", "transcripts", "media_frames", "engagement_metrics", "activity",
+                 "analyses", "signals", "clusters", "evidence", "opportunities", "opportunity_evidence", "assets",
+                 "competitors", "audiences", "settings", "profiles", "units", "cluster_members"}
 VOLATILE = {"updated_at", "jobs", "latest_analysis", "last_sync_json", "last_synced_at", "is_latest", "summary", "recommendation"}
 
 
@@ -378,16 +392,22 @@ def strip_volatile(x):
 
 
 def pdf_text(b: bytes) -> str:
-    """Text shown in a ReportLab PDF (content streams are zlib-compressed; strings sit in (...) Tj)."""
+    """Text shown in a ReportLab PDF: content streams are ASCII85 + zlib; strings sit in (...) Tj, cp1252 with octal
+    escapes."""
+    import base64
     out = []
-    for m in re.finditer(rb"stream\r?\n(.*?)\r?\nendstream", b, re.S):
-        raw = m.group(1)
+    for m in re.finditer(rb"<<((?:(?!<<).)*?)>>\s*stream\r?\n(.*?)endstream", b, re.S):
+        hdr, raw = m.group(1), m.group(2).strip()
         try:
-            raw = zlib.decompress(raw)
-        except zlib.error:
-            pass
+            if b"ASCII85Decode" in hdr:
+                raw = base64.a85decode(raw.removeprefix(b"<~").removesuffix(b"~>"))
+            if b"FlateDecode" in hdr:
+                raw = zlib.decompress(raw)
+        except (ValueError, zlib.error):
+            continue
         for s in re.findall(rb"\(((?:\\.|[^\\)])*)\)", raw):
-            out.append(re.sub(rb"\\(.)", rb"\1", s).decode("latin-1"))
+            s = re.sub(rb"\\([0-7]{1,3})", lambda m: bytes([int(m.group(1), 8)]), s)
+            out.append(re.sub(rb"\\(.)", rb"\1", s).decode("cp1252", errors="replace"))
     return " ".join(out)
 
 
@@ -411,13 +431,28 @@ class Driver:
     def run(self, eid, action):
         """Do `action` on entity `eid`, then check the outcome against the model. Returns (state_from, state_to)."""
         w = self.w
+        # Values (amounts, dates, pcts) come from an RNG keyed by (seed, machine, action, how many times this action
+        # has run on this entity), so a shrunk replay of the same actions sends the same values.
+        occ = w.occ.setdefault((eid, action), 0)
+        w.occ[(eid, action)] = occ + 1
+        walk_rng, w.r = w.r, random.Random(f"{w.seed}:{self.machine}:{action}:{occ}")
+        try:
+            return self._run(eid, action)
+        finally:
+            w.r = walk_rng
+
+    def _run(self, eid, action):
+        w = self.w
         prep = getattr(self, "p_" + action, None)
         if prep:  # preconditions (e.g. "there is an order to duplicate") are set up before the snapshot
             prep(eid)
             w.no5xx()
         s0 = self.state(eid)
         exp = self.expect(eid, s0, action)
-        before = w.db_digest() if exp == M.REFUSE else None
+        quiet = True
+        if exp == M.REFUSE:  # background jobs change their own tables; compare a quiet database
+            quiet = w.s.wait_idle(20)
+        before = w.db_digest(skip_worker=not quiet) if exp == M.REFUSE else None
         r = getattr(self, "a_" + action)(eid)
         code = r.status_code if r is not None else 200
         refused = 400 <= code < 500
@@ -426,7 +461,10 @@ class Driver:
         if exp == M.REFUSE:
             need(refused, "should-refuse", f"{self.machine} {eid} in {s0}: {action} was accepted ({code}), model says refuse")
             need(s1 == s0, "refused-changed-state", f"{self.machine} {eid}: {s0} -> {s1} after a refused {action}")
-            after = w.db_digest()
+            after = w.db_digest(skip_worker=not quiet)
+            if after != before and quiet and not w.s.wait_idle(0.1):  # a job started meanwhile (e.g. resumed)
+                before = {k: v for k, v in before.items() if k not in WORKER_TABLES}
+                after = {k: v for k, v in after.items() if k not in WORKER_TABLES}
             need(after == before, "refused-changed-data", f"{self.machine} {action} refused but data changed in: "
                  + ", ".join(k for k in before if before[k] != after.get(k)))
         else:
@@ -913,7 +951,7 @@ class Factory:
         w = self.w
         self.demo = self.demo or w.ensure_demo_analyzed()
         oid = w.ok("GET", "/api/opportunities")[0]["id"]
-        w.e.mode("valid")
+        w.engine_ready()
         j = w.ok("POST", "/api/assets/generate", json={"opportunity_id": oid, "kind": w.r.choice(["offer", "checklist", "newsletter"])})
         w.s.wait_idle(120)
         job = w.ok("GET", f"/api/jobs/{j['job_id']}")
@@ -948,6 +986,12 @@ class Factory:
 # ----------------------------------------------------------------------------------------------------------------
 # Modes
 # ----------------------------------------------------------------------------------------------------------------
+
+def seeded(seed):
+    r = random.Random(seed)
+    r._qa_seed = seed
+    return r
+
 
 def boot(seed, real=False, data=None):
     eng = Engine(free_port(11471 if not real else 11481), real=real)
@@ -1020,11 +1064,15 @@ def mode_pairs(w: World, f: Factory, machines=None):
         w.check_global()
 
 
-def simple_paths(machine, max_len=6):
+PATH_STARTS = {"asset": ["draft_clean", "draft_flagged"]}
+PATH_LEN = {"opportunity": 3}
+
+
+def simple_paths(machine, max_len=6, init=None):
     """Every path through the state graph from the initial state, following state-changing actions, where no state is
     entered more than twice (so reversals like retire -> reopen -> approve are included)."""
     states = machine["states"]
-    init = machine["initial"] if machine["initial"] in states else states[0]
+    init = init or (machine["initial"] if machine["initial"] in states else states[0])
     edges = {}
     for a, row in machine["actions"].items():
         for s, nxt in row.items():
@@ -1048,21 +1096,20 @@ def simple_paths(machine, max_len=6):
 def mode_paths(w: World, f: Factory, machines=None, max_len=5):
     """(d) every lifecycle path (up to max_len moves, each state at most twice) on a fresh entity."""
     stats = {}
-    for m in machines or ["product", "experiment", "deal", "asset"]:
-        init, paths = simple_paths(M.MACHINES[m], max_len)
+    for m in machines or ["product", "experiment", "deal", "asset", "opportunity"]:
         d = DRIVERS[m](w)
-        done = 0
-        for path in paths:
-            start = init if m != "asset" else "draft_clean"
-            if m == "asset" and path[0][1] in ("draft_flagged", "draft_clean"):
-                pass
-            eid = f.make(m, start)
-            for a, t in path:
-                s0, s1 = d.run(eid, a)
-            done += 1
-            if done % 25 == 0:
-                after_step_checks(w)
-        stats[m] = {"paths": len(paths), "run": done}
+        done = total = 0
+        for start in PATH_STARTS.get(m, [None]):
+            init, paths = simple_paths(M.MACHINES[m], PATH_LEN.get(m, max_len), start)
+            total += len(paths)
+            for path in paths:
+                eid = f.make(m, init)
+                for a, t in path:
+                    d.run(eid, a)
+                done += 1
+                if done % 25 == 0:
+                    after_step_checks(w)
+        stats[m] = {"paths": total, "run": done, "max_len": PATH_LEN.get(m, max_len)}
     w.check_global()
     return stats
 
@@ -1105,6 +1152,8 @@ def mode_random(w: World, seed: int, steps: int, real: bool = False):
         if m == "env":
             w.log.append({"m": "env", "a": a})
             env_action(w, f, ents, jobs_seen, a, real)
+            w.steps += 1
+            w.cov.env = getattr(w.cov, "env", set()) | {a}
         else:
             if eid is None:
                 continue
@@ -1134,6 +1183,7 @@ def env_action(w: World, f: Factory, ents, jobs_seen, a, real):
     if a in ("restart_server", "restart_hard"):
         before = w.snapshot()
         s.restart(hard=(a == "restart_hard"))
+        w.keys = False  # with AUDIENCEOS_NO_KEYCHAIN the keys live in memory only (the real app keeps them in the Keychain)
         after = w.snapshot()
         need(before == after, "lost-after-restart", diff(before, after))
     elif a == "engine_down" and not real:
@@ -1172,6 +1222,8 @@ def env_action(w: World, f: Factory, ents, jobs_seen, a, real):
             aud = r.choice(auds)
             gone = [pid for pid, org in w.product_org.items() if pid in {p["id"] for p in w.ok("GET", "/api/products", params={"audience_id": aud["id"]})}]
             w.ok("DELETE", f"/api/audiences/{aud['id']}")
+            if f.aud and f.aud["id"] == aud["id"]:
+                f.aud = None
             for pid in gone:
                 w.product_org.pop(pid, None)
                 w.sales.pop(pid, None)
@@ -1211,14 +1263,22 @@ def env_action(w: World, f: Factory, ents, jobs_seen, a, real):
                     need(rr2.json()["job_id"] == rr.json()["job_id"], "double-analysis", "a second click started a second analysis")
             else:
                 need(rr.status_code == 400 and not w.e.up or rr.status_code in (400, 409), "analyze-refusal", rr.text[:200])
+    elif a in ("cancel_job", "retry_job") and jobs_seen and w.call("GET", f"/api/jobs/{jobs_seen[-1]}").status_code == 404:
+        jobs_seen.pop()  # its audience was deleted (jobs go with it)
     elif a == "cancel_job" and jobs_seen:
         jid = r.choice(jobs_seen)
+        if w.call("GET", f"/api/jobs/{jid}").status_code == 404:
+            jobs_seen.remove(jid)
+            return
         j = w.ok("POST", f"/api/jobs/{jid}/cancel")
         if j["status"] == "cancelled":
             time.sleep(0.5)
             need(w.ok("GET", f"/api/jobs/{jid}")["status"] == "cancelled", "cancel-sticks", "a cancelled job came back")
     elif a == "retry_job" and jobs_seen:
         jid = r.choice(jobs_seen)
+        if w.call("GET", f"/api/jobs/{jid}").status_code == 404:
+            jobs_seen.remove(jid)
+            return
         st = w.ok("GET", f"/api/jobs/{jid}")["status"]
         rr = w.call("POST", f"/api/jobs/{jid}/retry")
         need((rr.status_code == 200) == (st in ("failed", "cancelled")), "retry-rule", f"retry from {st} -> {rr.status_code}")
@@ -1701,7 +1761,7 @@ def shrink(machine: str, start_state: str, actions: list[str], code: str, seed: 
         tries["n"] += 1
         srv, eng = boot(seed)
         try:
-            w = World(srv, eng, random.Random(seed), Coverage())
+            w = World(srv, eng, seeded(seed), Coverage())
             f = Factory(w)
             eid = f.make(machine, start_state)
             d = DRIVERS[machine](w)
@@ -1742,7 +1802,7 @@ def replay(path: str) -> bool:
     d = json.loads(Path(path).read_text())
     srv, eng = boot(d.get("seed", 1))
     try:
-        w = World(srv, eng, random.Random(d.get("seed", 1)), Coverage())
+        w = World(srv, eng, seeded(d.get("seed", 1)), Coverage())
         f = Factory(w)
         eid = f.make(d["machine"], d["start_state"])
         dr = DRIVERS[d["machine"]](w)
@@ -1765,7 +1825,7 @@ def seed_world(w: World):
     orders and costs, a payout, an experiment with results, an asset draft."""
     f = Factory(w)
     w.ensure_demo_analyzed()
-    aud = w.new_creator("Walk Creator", followers=12500)
+    aud = w.new_creator(f"Walk Creator {w.r.randint(1, 10**6)}", followers=12500)
     org = aud["org_id"]
     d = DealDriver(w)
     w.ok("POST", f"/api/creators/{org}/deal", json={"creator_share_pct": 70, "basis": "contribution", "replaces_deal_id": ""})
@@ -1790,7 +1850,7 @@ def seed_world(w: World):
     w.s.wait_idle(60)
 
 
-def mode_ui(w: World, seed: int, steps: int):
+def mode_ui(w: World, seed: int, steps: int, sweep: bool = False):
     import subprocess
     import threading
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -1824,7 +1884,9 @@ def mode_ui(w: World, seed: int, steps: int):
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     outf = OUT / f"ui_{seed}.json"
     env = {**__import__("os").environ, "BASE": w.s.base, "CTRL": f"http://127.0.0.1:{port}"}
-    rc = subprocess.call(["node", str(Path(__file__).with_name("ui_walk.js")), "--seed", str(seed), "--steps", str(steps), "--out", str(outf)], env=env)
+    outf = OUT / f"ui_{seed}{'_sweep' if sweep else ''}.json"
+    rc = subprocess.call(["node", str(Path(__file__).with_name("ui_walk.js")), "--seed", str(seed), "--steps", str(steps), "--out", str(outf)]
+                         + (["--sweep"] if sweep else []), env=env)
     httpd.shutdown()
     w.e.start()
     w.s.five_xx.clear()  # 5xx during the walk are reported by the walker itself
@@ -1841,7 +1903,7 @@ def run_cli(args):
     seed = args.seed
     srv, eng = boot(seed, real=args.real_model)
     cov = Coverage()
-    w = World(srv, eng, random.Random(seed), cov)
+    w = World(srv, eng, seeded(seed), cov)
     f = Factory(w)
     t0 = time.time()
     result = {"mode": args.mode, "seed": seed, "real_model": args.real_model, "ok": True}
@@ -1861,7 +1923,7 @@ def run_cli(args):
         elif args.mode == "jobs":
             result["jobs"] = mode_jobs(w, f)
         elif args.mode == "ui":
-            result["ui"] = mode_ui(w, seed, args.steps)
+            result["ui"] = mode_ui(w, seed, args.steps, sweep=args.sweep)
     except Exception as e:
         result["ok"] = False
         result["error"] = str(e)
@@ -1893,7 +1955,7 @@ def run_cli(args):
     result.update({"steps": w.steps, "http_calls": srv.calls, "invariant_checks": w.checks, "seconds": round(time.time() - t0, 1),
                    "coverage": cov.dump(), "data_dir": str(srv.data)})
     tag = ("_" + args.machines.replace(",", "-")) if getattr(args, "machines", "") else ""
-    name = f"{args.mode}_{seed}{tag}{'_real' if args.real_model else ''}{'_api' if args.mode == 'ui' else ''}.json"
+    name = f"{args.mode}_{seed}{tag}{'_real' if args.real_model else ''}{'_sweep' if getattr(args, 'sweep', False) else ''}{'_api' if args.mode == 'ui' else ''}.json"
     (OUT / name).write_text(json.dumps(result, indent=1, default=str))
     print(json.dumps({k: v for k, v in result.items() if k not in ("coverage", "trace")}, indent=1, default=str)[:3000])
     if not result["ok"]:
@@ -1901,12 +1963,47 @@ def run_cli(args):
     return result
 
 
+def write_model():
+    """qa/model.json: every screen and control (from qa/inventory.json), every API route (from the routers), every
+    entity state machine with each (state, action) -> expected result, the settings factors and session actions."""
+    root = Path(__file__).resolve().parents[2]
+    inv = json.loads((root / "qa" / "inventory.json").read_text())
+    routes = []
+    for f in sorted((root / "backend" / "app").glob("**/*.py")):
+        for mth, path in re.findall(r'@r\.(get|post|put|patch|delete)\("([^"]+)"', f.read_text()):
+            routes.append({"method": mth.upper(), "path": "/api" + path, "file": str(f.relative_to(root))})
+    machines = {}
+    for m, mach in M.MACHINES.items():
+        machines[m] = {"states": mach["states"], "initial": mach["initial"], "terminal": mach.get("terminal", []),
+                       "guards": mach.get("guards", {}),
+                       "transitions": [{"from": s_, "action": a, "expect": n} for (s_, a, n) in M.transitions(mach)]}
+    screens = {r: {"controls": c} for r, c in inv.items()}
+    model = {"generated_by": "qa/mbt/mbt.py model", "screens": screens, "screen_count": len(screens),
+             "control_count": sum(len(c) for c in inv.values()), "api_routes": routes, "api_route_count": len(routes),
+             "machines": machines, "settings_factors": M.FACTORS, "session_actions": M.SESSION_ACTIONS,
+             "env_actions": ENV_ACTIONS,
+             "counts": {m: {"states": len(v["states"]), "actions": len(M.MACHINES[m]["actions"]), "transitions": len(v["transitions"]),
+                            "refusals": sum(1 for t in v["transitions"] if t["expect"] == M.REFUSE)} for m, v in machines.items()}}
+    (root / "qa" / "model.json").write_text(json.dumps(model, indent=1))
+    print(json.dumps({k: model[k] for k in ("screen_count", "control_count", "api_route_count", "counts")}, indent=1))
+    return model
+
+
 def summarize():
     """Coverage per criterion, from every result file in qa/mbt/out (numbers come only from runs that happened)."""
     cov = Coverage()
     runs = []
+    ui = []
     for p in sorted(OUT.glob("*.json")):
         if p.name == "summary.json":
+            continue
+        if p.name.startswith("ui_") and not p.name.endswith("_api.json"):
+            u = json.loads(p.read_text())
+            ui.append({"file": p.name, "seed": u["seed"], "sweep": bool(u.get("sweep")), "steps": u["steps"] if not u.get("sweep") else len(u["sweep"]),
+                       "hard_problems": u["hard_problems"], "soft_problems": u["soft_problems"], "controls_used": u["controls_used"],
+                       "inventory_used": u["inventory_used"], "inventory_total": u["inventory_total"],
+                       "money_checks": u["stats"]["money_checks"], "reload_checks": u["stats"]["reload_checks"],
+                       "used": u["used"], "inv_missing": u["inventory_missing"]})
             continue
         d = json.loads(p.read_text())
         runs.append({k: d.get(k) for k in ("mode", "seed", "ok", "steps", "http_calls", "invariant_checks", "seconds", "real_model", "code")})
@@ -1914,12 +2011,19 @@ def summarize():
         if d.get("pairwise"):
             runs[-1]["pairwise"] = d["pairwise"]
     out = {"runs": runs, "machines": {}}
+    used = set().union(*[set(u.pop("used")) for u in ui]) if ui else set()
+    missing = set.intersection(*[set(u.pop("inv_missing")) for u in ui]) if ui else set()
+    out["ui"] = {"runs": ui, "controls_used_union": len(used), "inventory_total": ui[0]["inventory_total"] if ui else 0,
+                 "inventory_never_used": sorted(missing), "inventory_used_union": (ui[0]["inventory_total"] - len(missing)) if ui else 0}
     for m, mach in M.MACHINES.items():
         all_t = {(s, a) for (s, a, _) in M.transitions(mach)}
         refusals = {(s, a) for (s, a, n) in M.transitions(mach) if n == M.REFUSE}
         pairs = M.pair_space(mach)
-        init, paths = simple_paths(mach, 5) if m != "analysis_job" else (None, [])
-        path_states = {tuple([init] + [t for _, t in p]) for p in paths}
+        path_states = set()
+        if m != "analysis_job":
+            for start in PATH_STARTS.get(m, [None]):
+                init, paths = simple_paths(mach, PATH_LEN.get(m, 5), start)
+                path_states |= {tuple([init] + [t for _, t in p]) for p in paths}
         seen_paths = {tuple(x) for x in cov.paths[m]}
         out["machines"][m] = {
             "states": len(mach["states"]), "actions": len(mach["actions"]),
@@ -1959,7 +2063,7 @@ def _route_match(route: str, seen: str) -> bool:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("mode", choices=["transitions", "pairs", "paths", "random", "pairwise", "fuzz", "jobs", "summary", "all", "seeds", "replay", "ui"])
+    ap.add_argument("mode", choices=["transitions", "pairs", "paths", "random", "pairwise", "fuzz", "jobs", "summary", "all", "seeds", "replay", "ui", "model"])
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--steps", type=int, default=400)
     ap.add_argument("--seeds", type=int, default=5, help="for 'seeds': how many consecutive seeds from --seed")
@@ -1967,6 +2071,7 @@ def main():
     ap.add_argument("--machines", default="")
     ap.add_argument("--real-model", action="store_true")
     ap.add_argument("--no-shrink", action="store_true")
+    ap.add_argument("--sweep", action="store_true", help="ui: every control on every screen once, instead of a random walk")
     ap.add_argument("file", nargs="?")
     args = ap.parse_args()
     if args.mode == "replay":
@@ -1974,6 +2079,9 @@ def main():
         sys.exit(0 if all([replay(p) for p in files]) else 1)
     if args.mode == "summary":
         summarize()
+        return
+    if args.mode == "model":
+        write_model()
         return
     if args.mode == "seeds":
         bad = 0

@@ -303,3 +303,23 @@ export function JobLine({ job }: { job: any }) {
     </div>
   );
 }
+
+
+/** Warn before leaving a page with unsaved form edits: the in-app links (sidebar, breadcrumbs) and closing or
+ * reloading the tab. Pass 3 found the product setup and deal forms dropped typed changes silently on navigation. */
+export function useLeaveGuard(dirty: boolean, message = "You have unsaved changes on this page. Leave without saving them?") {
+  useEffect(() => {
+    if (!dirty) return;
+    const onBefore = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    const onClick = (e: MouseEvent) => {
+      const a = (e.target as HTMLElement | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
+      if (!a || a.target === "_blank" || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+      const url = new URL(a.href, window.location.href);
+      if (url.origin !== window.location.origin || url.pathname === window.location.pathname) return;
+      if (!window.confirm(message)) { e.preventDefault(); e.stopPropagation(); }
+    };
+    window.addEventListener("beforeunload", onBefore);
+    document.addEventListener("click", onClick, true);
+    return () => { window.removeEventListener("beforeunload", onBefore); document.removeEventListener("click", onClick, true); };
+  }, [dirty, message]);
+}

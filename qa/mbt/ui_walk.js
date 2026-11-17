@@ -15,6 +15,7 @@ const os = require('os');
 const BASE = process.env.BASE; const CTRL = process.env.CTRL;
 if (!BASE || /:8760\b/.test(BASE)) { console.error('BASE must be a scratch server, never :8760'); process.exit(2); }
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
+const SWEEP = process.argv.includes('--sweep');
 const SEED = +arg('seed', 1), STEPS = +arg('steps', 200), OUTF = arg('out', path.join(__dirname, 'out', `ui_${SEED}.json`));
 function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 const rnd = mulberry32(SEED);
@@ -59,7 +60,7 @@ const norm = s => (s || '').replace(/\s+/g, ' ').replace(/\$?[\d,]+(\.\d+)?%?/g,
     all.forEach((e, i) => {
       if (!vis(e) || e.disabled || e.getAttribute('aria-disabled') === 'true') return;
       let lab = name(e);
-      if (/INPUT|SELECT|TEXTAREA/.test(e.tagName)) { const l = e.closest('label'); lab = (l ? (l.querySelector('span')?.innerText || l.innerText) : '').replace(/\s+/g, ' ').trim().slice(0, 40) + ' [' + (e.type || e.tagName.toLowerCase()) + ']' + (lab && e.tagName !== 'INPUT' ? '' : ''); }
+      if (/INPUT|SELECT|TEXTAREA/.test(e.tagName)) { const l = e.closest('label'); lab = (l ? (l.querySelector('span')?.innerText || l.innerText) : '').replace(/\s+/g, ' ').trim().slice(0, 40) + ' [' + (e.type || e.tagName.toLowerCase()) + ']' + (lab ? ' ' + lab : ''); }
       const kind = e.tagName === 'A' ? 'link' : e.tagName.toLowerCase();
       if (e.type === 'file') return;
       const href = e.getAttribute('href') || '';
@@ -110,7 +111,52 @@ const norm = s => (s || '').replace(/\s+/g, ' ').replace(/\$?[\d,]+(\.\d+)?%?/g,
     return r;
   };
 
-  for (let i = 0; i < STEPS; i++) {
+  // Sweep: every control on every screen, once each, from a fresh load of that screen.
+  const sweepLog = [];
+  if (SWEEP) {
+    const routes = [...new Set(await ROUTES())].filter(r => !/missing|doesnotexist|nope/.test(r));
+    let n = 0;
+    for (const r of routes) {
+      await page.goto(BASE + r, { waitUntil: 'networkidle2' }).catch(() => {});
+      await page.waitForNetworkIdle({ idleTime: 400, timeout: 5000 }).catch(() => {}); await sleep(250);
+      const pat0 = pattern(page.url());
+      const list = (await controls().catch(() => [])).filter(c => !c.ext);
+      const keys = [...new Set(list.map(c => `${c.kind}: ${norm(c.label)}`))];
+      for (const k of keys) {
+        stats.steps = n++;
+        try {
+          await page.goto(BASE + r, { waitUntil: 'networkidle2' });
+          await page.waitForNetworkIdle({ idleTime: 400, timeout: 5000 }).catch(() => {}); await sleep(250);
+          const cs = await controls();
+          const c = cs.find(x => `${x.kind}: ${norm(x.label)}` === k);
+          const key = `${pat0}|${k}`;
+          seen[key] = (seen[key] || 0) + 1;
+          if (!c) { sweepLog.push({ route: r, key: k, result: 'gone after reload' }); continue; }
+          lastStep = { i: n, kind: 'control', key, url: page.url(), sweep: true };
+          used[key] = (used[key] || 0) + 1;
+          const el = await page.$(`[data-qa-idx="${c.idx}"]`);
+          await el.evaluate(e => e.scrollIntoView({ block: 'center', inline: 'center' }));
+          const before = problems.length;
+          if (c.kind === 'select') { const v = c.opts[c.opts.length - 1] ?? ''; await el.select(v); }
+          else if ((c.kind === 'input' && !/checkbox|radio|submit|button/.test(c.type)) || c.kind === 'textarea') {
+            await el.click({ clickCount: 3 }); await page.keyboard.type(c.type === 'number' ? '12' : c.type === 'date' ? '2026-01-15' : 'Sweep 🍞', { delay: 0 }); await page.keyboard.press('Tab');
+          } else { const b = await el.boundingBox(); if (b) await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2); }
+          await page.waitForNetworkIdle({ idleTime: 250, timeout: 6000 }).catch(() => {});
+          // a dialog/drawer that opened must be closable with Escape or its close control
+          const modal = await page.$('.modal, .drawer, [role=dialog]');
+          let closable = null;
+          if (modal) { await page.keyboard.press('Escape'); await sleep(200); closable = !(await page.$('.modal, .drawer, [role=dialog]'));
+            if (!closable) { const x = await page.$('.modal button[aria-label*=lose], .drawer button[aria-label*=lose], [role=dialog] button[aria-label*=lose]'); if (x) { await x.click(); await sleep(200); closable = !(await page.$('.modal, .drawer, [role=dialog]')); } } }
+          if (modal && closable === false) problems.push({ step: n, kind: 'dialog-no-exit', msg: `${key}: a dialog opened that neither Escape nor a close button closes`, last: lastStep, soft: true });
+          sweepLog.push({ route: r, key: k, result: problems.length > before ? 'problem' : 'ok', url_after: pattern(page.url()), opened_dialog: !!modal });
+        } catch (e) {
+          sweepLog.push({ route: r, key: k, result: 'driver: ' + e.message.slice(0, 80) });
+        }
+      }
+    }
+  }
+
+  for (let i = 0; i < (SWEEP ? 0 : STEPS); i++) {
     stats.steps = i;
     const pat = pattern(page.url());
     let cs = [];
@@ -196,7 +242,7 @@ const norm = s => (s || '').replace(/\s+/g, ' ').replace(/\$?[\d,]+(\.\d+)?%?/g,
   const out = { seed: SEED, steps: STEPS, stats, problems, hard_problems: hard.length, soft_problems: problems.length - hard.length,
     controls_seen: Object.keys(seen).length, controls_used: usedKeys.size, screens_seen: [...new Set(Object.keys(seen).map(k => k.split('|')[0]))],
     inventory_total: invKeys.size, inventory_used: invHit.length, inventory_missing: [...invKeys].filter(k => !invHit.includes(k)).slice(0, 80),
-    offered_but_refused: Object.entries(offeredFailed).sort((a, b) => b[1] - a[1]).slice(0, 40), used: Object.keys(used) };
+    offered_but_refused: Object.entries(offeredFailed).sort((a, b) => b[1] - a[1]).slice(0, 40), used: Object.keys(used), sweep: sweepLog };
   fs.mkdirSync(path.dirname(OUTF), { recursive: true });
   fs.writeFileSync(OUTF, JSON.stringify(out, null, 1));
   console.log(JSON.stringify({ seed: SEED, steps: STEPS, hard_problems: hard.length, soft: out.soft_problems, controls_seen: out.controls_seen, controls_used: out.controls_used, inventory: `${out.inventory_used}/${out.inventory_total}`, money_checks: stats.money_checks, reload_checks: stats.reload_checks }));

@@ -23,6 +23,14 @@ def money(x: float) -> float:
     """Round to cents, half-up (what people expect on a statement)."""
     return float(Decimal(str(x)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
 
+
+def share(base: float, pct: float) -> float:
+    """pct% of a split base, half-up to the cent, in exact decimal arithmetic. The base is a sum of cent amounts, so it
+    is first rounded back to whole cents: in floats, 19 + 120.5 + 120.5 - 0.85 = 259.14999999999998, and 30% of that
+    rounded to 77.74 instead of 77.75 (found by the pass-3 generator, seed 7)."""
+    d = Decimal(str(round(base, 2))) * Decimal(str(pct)) / 100
+    return float(d.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
 STAGES = ["discovery", "analysis", "opportunities", "validation", "product", "launched", "selling"]
 STAGE_LABEL = {"discovery": "Discovery", "analysis": "Audience analysis", "opportunities": "Product opportunities",
                "validation": "Demand validation", "product": "Product ready for approval", "launched": "Launched",
@@ -74,18 +82,18 @@ def statement(org_id: str, start: str | None = None, end: str | None = None) -> 
         pnl = product_pnl(p, start, end)
         base = pnl["net_sales"] - pnl["fees"] - (pnl["shared_costs"] if basis == "contribution" else 0)
         cf = bool(deal and deal.get("loss_carry_forward"))
-        cshare = (money((base if cf else max(0.0, base)) * pct / 100)) if pct is not None else None
+        cshare = share(base if cf else max(0.0, base), pct) if pct is not None else None
         back = p["status"] == "draft" and bool(p.get("launched_at") or (p.get("approval") or {}).get("reset"))
         line = {"product_id": p["id"], "product": p["name"], "status": p["status"], "launched_at": p.get("launched_at"),
                 "back_to_draft": back, **pnl, "split_base": round(base, 2),
-                "creator_share": cshare, "agency_share": money(base - cshare) if cshare is not None else None}
+                "creator_share": cshare, "agency_share": money(round(base, 2) - cshare) if cshare is not None else None}
         lines.append(line)
         for k in tot:
             tot[k] += line.get(k) or 0
     tot = {k: round(v, 2) for k, v in tot.items()}
     tot["orders"] = int(tot["orders"])
     if deal and deal.get("loss_carry_forward") and pct is not None:  # losses offset profits across products
-        tot["creator_share"] = money(max(0.0, tot["split_base"]) * pct / 100)
+        tot["creator_share"] = share(max(0.0, tot["split_base"]), pct)
         tot["agency_share"] = money(tot["split_base"] - tot["creator_share"])
     tot["agency_net_after_own_costs"] = round(tot["agency_share"] - tot["agency_only_costs"], 2)
     # Balance uses all-time figures regardless of the period filter.
@@ -138,8 +146,8 @@ def statement_totals_all_time(org_id, pct, basis, carry_forward: bool = False) -
         pnl = product_pnl(p)
         base = pnl["net_sales"] - pnl["fees"] - (pnl["shared_costs"] if basis == "contribution" else 0)
         cum += base
-        total += money(max(0.0, base) * pct / 100)
-    return money(max(0.0, cum) * pct / 100) if carry_forward else round(total, 2)
+        total += share(max(0.0, base), pct)
+    return share(max(0.0, cum), pct) if carry_forward else round(total, 2)
 
 
 def cumulative_split_base(org_id, basis) -> float:
