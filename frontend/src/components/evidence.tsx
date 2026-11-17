@@ -133,7 +133,7 @@ export function Quote({ q, showCluster }: { q: any; showCluster?: string }) {
   const open = useEvidence();
   return (
     <div className="quote" onClick={() => open(q.evidence_id || q.id)} role="button" tabIndex={0}
-      onKeyDown={(e) => e.key === "Enter" && open(q.evidence_id || q.id)}>
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(q.evidence_id || q.id); } }}>
       <div className="q">“{q.quote}”</div>
       <div className="meta">
         {q.intent_level && <span className="badge info">{INTENT_LABEL[q.intent_level] || q.intent_level}</span>}

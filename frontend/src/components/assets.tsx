@@ -46,9 +46,11 @@ function AssetDrawer({ id, onClose, onChanged }: { id: string; onClose: () => vo
   const save = async () => { if (await act.run(() => patch(`/api/assets/${id}`, { content }))) { setEditing(false); setStamp(Date.now()); reload(); onChanged(); toast("Saved — needs re-approval"); } };
   const approve = async (v: boolean) => { if (await act.run(() => post(`/api/assets/${id}/approve`, { approved: v, flags_checked: v && checked }))) { setStamp(Date.now()); reload(); onChanged(); } };
   const remove = async () => { if (window.confirm("Delete this draft?") && (await act.run(() => del(`/api/assets/${id}`)))) { onChanged(); onClose(); } };
+  // Closing the drawer (✕, Escape, clicking outside) while editing would silently throw the edits away.
+  const guardedClose = () => { if (editing && a && content !== a.content && !window.confirm("Discard your unsaved edits to this draft?")) return; onClose(); };
   const flags = (Array.isArray(a?.review?.flags) ? a.review.flags : []).filter((f: any) => f && typeof f === "object");
   return (
-    <Drawer title={a?.title || "Asset"} onClose={onClose}>
+    <Drawer title={a?.title || "Asset"} onClose={guardedClose}>
       {loading && <Loading />}
       <ErrorBox error={error || act.error} />
       {a && (

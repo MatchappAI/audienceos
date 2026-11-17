@@ -358,7 +358,8 @@ export default function SourcesTab({ audience, reloadAudience }: { audience: any
               {data.map((s) => {
                 const job = jobs.find((j) => j.ref_id === s.id);
                 return (
-                  <tr key={s.id} className="click" onClick={() => setOpen(s.id)}>
+                  <tr key={s.id} className="click" onClick={() => setOpen(s.id)} tabIndex={0} aria-label={`Open ${s.title || s.filename || s.original_url}`}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen(s.id); } }}>
                     <td style={{ paddingLeft: 20, maxWidth: 300 }}>
                       <div className="strong clip">{s.title || s.filename || s.original_url}</div>
                       <div className="small muted">{platformLabel(s.platform)} · {s.kind}{s.voice === "audience" ? " · audience's words" : ""}{s.size_bytes ? ` · ${bytes(s.size_bytes)}` : ""}</div>

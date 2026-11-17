@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { post } from "../api";
 import { bytes, date, human, money, platformLabel } from "../format";
@@ -10,10 +11,20 @@ const KINDS = [["all", "Everything"], ["sources", "Sources"], ["content", "Conte
   ["assets", "Assets"], ["reports", "Reports"], ["analyses", "Analysis history"]];
 
 export default function Library() {
-  const [q, setQ] = useState("");
-  const [dq, setDq] = useState("");
-  const [kind, setKind] = useState("all");
-  const [aud, setAud] = useState("");
+  // Search and filters live in the address bar, so opening a result and pressing Back returns to the same list.
+  const [params, setParams] = useSearchParams();
+  const [q, setQ] = useState(params.get("q") || "");
+  const [dq, setDq] = useState(params.get("q") || "");
+  const [kind, setKind] = useState(params.get("kind") || "all");
+  const [aud, setAud] = useState(params.get("audience") || "");
+  useEffect(() => {
+    const p: Record<string, string> = {};
+    if (dq) p.q = dq;
+    if (kind !== "all") p.kind = kind;
+    if (aud) p.audience = aud;
+    setParams(p, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dq, kind, aud]);
   const { data: auds } = useApi<any[]>("/api/audiences");
   useEffect(() => { const t = window.setTimeout(() => setDq(q), 300); return () => window.clearTimeout(t); }, [q]);
   const qs = new URLSearchParams({ q: dq, kind, limit: "60" });

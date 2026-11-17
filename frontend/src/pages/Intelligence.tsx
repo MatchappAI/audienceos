@@ -90,7 +90,8 @@ export function ProblemsView({ audienceId }: { audienceId: string }) {
             <tbody>
               {data.clusters.map((c: any) => (
                 <Fragment key={c.id}>
-                  <tr className="click" onClick={() => setOpen(open === c.id ? null : c.id)}>
+                  <tr className="click" onClick={() => setOpen(open === c.id ? null : c.id)} tabIndex={0} aria-expanded={open === c.id}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen(open === c.id ? null : c.id); } }}>
                     <td style={{ paddingLeft: 20 }}><div className="strong">{open === c.id ? "▾" : "▸"} {c.label}</div><div className="small muted">{c.description}</div></td>
                     <td className="num">{num(c.unique_authors)}</td>
                     <td className="num">{num(c.signal_count)}</td>

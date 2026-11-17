@@ -152,7 +152,7 @@ label.field > span { display: block; font-size: 12.5px; color: var(--sub); margi
 input, select, textarea { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line-2); border-radius: var(--radius-sm); padding: 7px 10px; width: 100%; max-width: 100%; }
 input[type="checkbox"], input[type="radio"] { width: auto; }
 textarea { resize: vertical; min-height: 80px; }
-input:focus, select:focus, textarea:focus, .btn:focus-visible, .dropzone:focus-visible, .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+input:focus, select:focus, textarea:focus, .btn:focus-visible, .dropzone:focus-visible, .seg button:focus-visible, .quote:focus-visible, tr.click:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .check { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0; cursor: pointer; }
 .check input { margin-top: 3px; }
 .inline-fields { display: grid; gap: 10px; }

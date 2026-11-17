@@ -158,7 +158,9 @@ class OllamaProvider(BaseProvider):
         try:
             r = httpx.post(f"{config.OLLAMA_URL}/api/chat", json=body, timeout=900)
         except httpx.HTTPError as e:
-            raise ProviderUnavailable(f"Local AI engine unreachable: {e.__class__.__name__}")
+            kind = "took too long to answer" if isinstance(e, httpx.TimeoutException) else "stopped or couldn't be reached"
+            raise ProviderUnavailable(f"The local AI engine (Ollama) {kind}. Restart AudienceOS with the launcher, "
+                                      f"then try again. ({e.__class__.__name__})")
         if r.status_code != 200:
             raise ProviderError(f"Local model error: {r.text[:300]}")
         return r.json()["message"]["content"]

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, NavLink, Navigate, useNavigate, useParams } from "react-router-dom";
 import { del, patch, post } from "../api";
 import { compact, date, dateTime, num, parseCount, platformLabel } from "../format";
@@ -53,7 +53,7 @@ export default function Workspace() {
 }
 
 export function AnalyzePanel({ a, compact: small }: { a: any; compact?: boolean }) {
-  const { data: sys } = useApi<any>("/api/system");
+  const { data: sys, reload: reloadSys } = useApi<any>("/api/system");
   const { jobs, kick } = useJobs();
   const toast = useToast();
   const [confirm, setConfirm] = useState(false);
@@ -63,6 +63,14 @@ export function AnalyzePanel({ a, compact: small }: { a: any; compact?: boolean 
   const prov = sys?.providers?.find((p: any) => p.name === sys.active_provider);
   const lastFailed = (a.jobs || []).find((j: any) => j.kind === "analyze_audience");
   const hasMaterial = a.counts.content_items + a.counts.comments > 0;
+
+  // While the AI engine is down, keep checking so the button comes back by itself once it's restarted.
+  const down = !!prov && !prov.available;
+  useEffect(() => {
+    if (!down) return;
+    const t = window.setInterval(reloadSys, 5000);
+    return () => window.clearInterval(t);
+  }, [down, reloadSys]);
 
   const go = async () => {
     const r = await run(() => post(`/api/audiences/${a.id}/analyze`, { confirm_external: confirm }));

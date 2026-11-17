@@ -160,7 +160,7 @@ export default function OpportunityDetail() {
         </div>
         <div className="row">
           {o.status === "proposed" && <button className="btn" onClick={() => setSt("approved")} disabled={act.busy}>Approve for testing</button>}
-          {o.status !== "rejected" && <button className="btn ghost" onClick={() => setSt("rejected")} disabled={act.busy}>Reject</button>}
+          {o.status !== "rejected" && !o.products?.length && <button className="btn ghost" onClick={() => { if (window.confirm(`Reject “${o.name}”?${o.status !== "proposed" ? ` It is ${o.status} now; Restore puts it back to Proposed, not ${o.status}.` : ""}`)) setSt("rejected"); }} disabled={act.busy}>Reject</button>}
           {o.status === "rejected" && <button className="btn ghost" onClick={() => setSt("proposed")}>Restore</button>}
           {/* Once an experiment or product exists, open it instead of silently creating a duplicate. */}
           {o.products?.length ? <Link className="btn" to={`/products/${o.products[0].id}`}>Open product</Link>
