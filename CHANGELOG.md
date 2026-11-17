@@ -1,5 +1,39 @@
 # Changelog
 
+## 1.5.0 — 2026-11-16 (production-readiness audit)
+
+A full audit: every page and button driven in headless Chrome on a scratch copy, plus an independent security review. Details: `ISSUE_TRACKER.md` (36 issues fixed), `QA_MATRIX.md`, `FINAL_READINESS_REPORT.md`.
+
+**Fixed: serious (P1)**
+- **Reprocessing a source deleted the evidence behind finished analyses**: quotes, signals and opportunity links. They are now kept and re-linked (migration 005).
+- **The launch gate could be skipped through the API** (draft → paused → launched). Only launched products can be paused, and launch needs a recorded approval.
+- **Importing a video sent its frames to an external AI with no per-run consent** whenever one was the active provider. Imports now use only the local vision model.
+- **DNS rebinding** could make a link fetch reach this Mac or the local network. The address actually connected to is now checked.
+- **Describing video frames locked the database**, so other saves could fail.
+- **A small analysis could run for 30+ minutes** at the opportunity stage. With fewer than 6 verified signals, product ideas are skipped with a plain reason.
+
+**Fixed: money**
+- Dashboard "Owed to creators" no longer nets off an overpaid creator.
+- Statements warn about undated orders left out of a period, orders outside the deal term, and changed deal terms.
+- Checkout sync warns when it couldn't read every page.
+- Money dates must be YYYY-MM-DD. A refund can't exceed its sale. A deal can't end before it starts.
+- Confirmation before deleting orders and costs, and before recording a payout bigger than the balance.
+
+**Fixed: other**
+- Flagged asset claims must be confirmed in the API too, not just the UI.
+- CSV imports handle BOM headers, single-column files with commas, extra cells and very long fields. JSON with a BOM works. DOCX decompression bombs are refused.
+- Settings are type-checked: the string "false" can no longer switch external AI on.
+- API keys in request URLs are no longer written to the log.
+- Ingested text can't close the prompt's untrusted-material wrapper.
+- Cancelled jobs stay cancelled, and a cancelled analysis or import is closed out.
+- Progress no longer shows the previous stage's label.
+- Unknown `/api` paths return a 404.
+- Retired products can be reopened as drafts.
+- Faint and warning text now meet WCAG AA contrast.
+- The sidebar becomes an icon rail in narrow windows.
+
+**New:** the `e2e/` folder (headless journey, route sweep and edge-case scripts). The automated suite went from 82 to 117 tests.
+
 ## 1.4.0 — 2026-11-06 (all checkouts, models verified for real)
 
 - **Shopify and Lemon Squeezy checkout sync** (read-only), alongside Stripe and Gumroad.

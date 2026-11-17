@@ -1,5 +1,39 @@
 # Testing
 
+## Session 6 — 2026-11-16 (v1.5.0, production-readiness audit)
+
+Everything ran on a **scratch copy**: the server on port 8761 with its own data folder, and a private Ollama on port 11435 using the bundled models. The live app (port 8760, `~/AudienceOS/data`) was not running and was never touched. Chrome ran only with `--headless=new`.
+
+**Automated: 117 tests pass** (82 → 117). The new files are `test_audit_2026_11_16.py` (launch gate, money warnings, concurrency, validation) and `test_audit_ingest_security.py` (evidence kept on reprocess, DNS rebinding, CSV/JSON/DOCX, typed settings, prompt-wrapper defanging, cancel, thin-evidence skip). The frontend build (`tsc` + Vite) is clean.
+
+**End to end, fresh database, real local model** (`e2e/1_demo_and_analysis.js`, then `e2e/2_full_journey.js`):
+
+| Step | Result |
+|---|---|
+| Demo ingest | 4 sources ready in 9 s |
+| Analysis (`qwen2.5:7b`) | **33 signals · 5 problems · 3 opportunities in 8 min** (10 min 40 s on the first run of the day) |
+| Journey | **33/33 checks pass, 0 console errors, 0 failed API calls.** Covered: evidence drawer, approve → experiment, criteria, results + orders import, idempotent re-import, Go, landing page drafted in 65 s, flagged claim ticked → approved, exports, product gate → launch, 5 orders + $12 cost, 70/30 → creator $95.80, $10 payout → owed $85.80, CSV/PDF/portal agree, 5 report files, library |
+| Route sweep (`e2e/3_route_sweep.js`) | 27 routes × light/dark × 1440 px/390 px = 108 loads. 0 console errors on real pages, 0 unnamed buttons, 0 unlabeled inputs, no horizontal scroll. Median 0.77 s. The only flags are the deliberate missing-ID pages, which show "not found" |
+| Edge cases (`e2e/4_edge_cases.py`) | **30/30**: bad and duplicate uploads, unicode, a 2 MB paste, prompt injection, security headers, money validation, and a 20,000-order CSV (0.6 s; statement 0.05 s, dashboard 0.12 s; re-import adds 0) |
+| Recovery | A second start returned the same job. A refresh mid-run showed progress. A server restart mid-run resumed it (attempt 2). Engine down gave a clear message and no job |
+| Thin material | 6 pasted comments → 5 signals → the 7B model ran 30+ min at the opportunity stage (6,525 tokens) before I cancelled it. Fixed: fewer than 6 signals now skips product ideas with a reason |
+
+An independent reviewer reproduced 13 backend defects with scripts. All were re-run after the fixes and now pass (see `ISSUE_TRACKER.md`). Listeners during testing were 127.0.0.1 only. The scratch logs contain no API-key patterns.
+
+**How to re-run the e2e checks** (never against port 8760):
+
+```sh
+# scratch server with its own data folder
+cd ~/AudienceOS/backend && AUDIENCEOS_DATA=/tmp/aos-scratch AUDIENCEOS_PORT=8761 AUDIENCEOS_NO_KEYCHAIN=1 \
+  .venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8761 &
+cd ~/AudienceOS/e2e && npm install            # puppeteer-core only; uses your installed Chrome, headless
+node 1_demo_and_analysis.js                    # loads the demo and starts the analysis (~10 min)
+node 2_full_journey.js && node 3_route_sweep.js
+../backend/.venv/bin/python -I 4_edge_cases.py
+```
+
+**Not tested live:** real Stripe/Gumroad/Shopify/Lemon Squeezy accounts, Anthropic/OpenAI, the YouTube API and Brave (no keys, by rule), and the live app restart (needs your OK; see `FINAL_READINESS_REPORT.md`).
+
 ## Session 5 — 2026-11-06 (v1.4.0)
 
 **Automated: 82 tests pass.** New tests cover Shopify (only this product's items counted, partial refunds, `utm_source` channel, rejects non-myshopify hosts, follows pagination on the same host, pending orders skipped), Lemon Squeezy (product match, pagination, refunds, non-USD warning), and migration 004 keeping sales rows during the table rebuild. Tests are now pinned to an unreachable AI-engine address.

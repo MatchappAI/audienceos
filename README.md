@@ -20,7 +20,7 @@ To rebuild from source after code changes:
 
 ```sh
 cd ~/AudienceOS/frontend && npm install && npm run build      # type-checks, then builds to frontend/dist
-cd ~/AudienceOS/backend && .venv/bin/python -m pytest          # 79 tests
+cd ~/AudienceOS/backend && .venv/bin/python -m pytest          # 117 tests
 ```
 
 ### From a fresh clone
@@ -66,6 +66,7 @@ For a real creator, use **Add creator** and import their own exports (see `DATA_
 |---|---|
 | `FEATURES.md` | What works, what's limited, what's not built |
 | `TESTING.md` | Automated tests and live end-to-end runs, with real results |
+| `FINAL_READINESS_REPORT.md` | Latest audit verdict, evidence and what's left (with `APP_AUDIT.md`, `USER_JOURNEYS.md`, `QA_MATRIX.md`, `ISSUE_TRACKER.md`, `CHANGELOG_AUDIT.md`) |
 | `AUDIT.md` | Strategy audit: each workflow step → status, pilot readiness, what's deferred |
 | `ARCHITECTURE.md` | Modules, data model, pipeline, security |
 | `DECISIONS.md` | Why things are built the way they are |

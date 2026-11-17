@@ -93,7 +93,7 @@ async function byLabel(page, label, value, idx = 0) {
     await page.goto(`${BASE}/creators/${org}`, { waitUntil: 'networkidle0' });
     if (/Save deal/.test(await text(page))) { await clickText(page, 'Save deal'); await sleep(1200); }
     let st = (await api(`/api/creators/${org}/statement`)).body;
-    const pnl = p.pnl; const base = pnl.net_sales - pnl.fees - pnl.shared_costs; const exp = Math.round(Math.max(0, base) * 0.7 * 100) / 100;
+    const pnl = p.pnl; const base = pnl.net_sales - pnl.fees - pnl.shared_costs; const exp = Math.round(Math.max(0, base) * 70 + 1e-6) / 100; // half-up to the cent, as statements round
     check('70/30 on contribution', Math.abs(st.all_time_creator_share - exp) < 0.011, `base=${base.toFixed(2)} creator=${st.all_time_creator_share} expected=${exp} agency=${st.totals.agency_share}`);
     await setInput(page, 'input[aria-label="Amount"]', '10'); await clickText(page, 'Record payout'); await sleep(1200);
     st = (await api(`/api/creators/${org}/statement`)).body; check('payout reduces balance', Math.abs(st.balance_owed - (exp - 10)) < 0.011, `owed=${st.balance_owed}`);

@@ -17,3 +17,5 @@
 5. **Get creator consent** before importing their audience's comments, and before any external AI run on them.
 6. **Decide the deal options per creator.** Loss carry-forward and a minimum guarantee are off by default. Turn them on only if the signed contract says so.
 7. **Before the first payout run**, check each creator's contact email (the payout file needs it), pay outside AudienceOS, then record each payout.
+8. **Two contract questions from the 2026-11-16 audit.** Should orders dated outside a deal's start/end be shared? And when you change terms, should the new terms apply only to later sales? Today one active deal applies to all time, and the statement warns you. Tell me the answer and it can be built as dated deal periods.
+9. **Approve the 1.5.0 rollout.** Push the `audit/2026-11-16` branch, then back up `data/` and restart the app so migration 005 runs (see `FINAL_READINESS_REPORT.md`).

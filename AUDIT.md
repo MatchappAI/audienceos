@@ -19,6 +19,18 @@ Status key: ✅ ready for pilots · 🟡 works with a stated limit · ⏸ deferr
 | 9 | **70/30 revenue share** | ✅ | Per-creator deals (configurable %, contribution or net-sales base), shared vs agency-only costs, payouts, balance owed, and a statement plus CSV. | **You must confirm the contract's base** (see `NEXT_STEPS.md` item 1). Losses are never charged to the creator. |
 | 10 | **Optimization** | ✅ | You can compare experiments, see sales by channel, get rules-based next-test suggestions (1.3) and reanalyze when new material arrives. | Suggestions are rules, not a model; a human picks the next test. |
 
+## What changed in the production-readiness audit (2026-11-16, v1.5.0)
+
+Every page, button and form was driven in headless Chrome on a scratch copy, and an independent reviewer checked security, import and AI. 36 issues were fixed (full list in `ISSUE_TRACKER.md`). These matter most for the pilots:
+
+1. **Evidence is never silently lost.** Reprocessing a source used to delete every quote behind a finished analysis. Evidence is now kept and re-linked.
+2. **Human approval is enforced in the API, not just the screen.** A draft can't reach "launched" without the 5-check approval, and flagged claims need an explicit confirmation.
+3. **Nothing leaves the Mac without consent.** Video frames are no longer sent to an external AI during import, and a mistyped setting can't switch external AI on.
+4. **Money screens say when something is off.** Undated orders, orders outside the deal term, changed deal terms and incomplete checkout syncs all show a warning. An overpaid creator no longer reduces what others are owed.
+5. **Small creators don't hang the app.** With fewer than 6 verified signals, the analysis finishes and says it needs more comments, instead of the local model running for 30+ minutes.
+
+Two money questions now need your decision (`ISSUE_TRACKER.md` A-07, A-08, O-07): should orders dated outside a deal's term count, and should a change of terms apply only to later sales? Today one active deal applies to all time, and the statement says so.
+
 ## What changed in this pass (2026-11-05, session 2)
 
 These changes matter for running the 3 pilots.
