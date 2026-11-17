@@ -16,9 +16,9 @@
    "seed": 1,
    "ok": true,
    "steps": 0,
-   "http_calls": 181,
-   "invariant_checks": 14,
-   "seconds": 32.5,
+   "http_calls": 241,
+   "invariant_checks": 21,
+   "seconds": 41.2,
    "real_model": false,
    "code": null
   },
@@ -338,24 +338,24 @@
   {
    "mode": "random",
    "seed": 28,
-   "ok": false,
-   "steps": 1,
-   "http_calls": 31,
-   "invariant_checks": 0,
-   "seconds": 192.0,
+   "ok": true,
+   "steps": 400,
+   "http_calls": 3530,
+   "invariant_checks": 567,
+   "seconds": 61.7,
    "real_model": false,
-   "code": "asset-job"
+   "code": null
   },
   {
    "mode": "random",
    "seed": 29,
-   "ok": false,
-   "steps": 46,
-   "http_calls": 225,
-   "invariant_checks": 15,
-   "seconds": 532.0,
+   "ok": true,
+   "steps": 400,
+   "http_calls": 3575,
+   "invariant_checks": 542,
+   "seconds": 50.7,
    "real_model": false,
-   "code": "asset-job"
+   "code": null
   },
   {
    "mode": "random",
@@ -381,12 +381,122 @@
   },
   {
    "mode": "random",
+   "seed": 31,
+   "ok": true,
+   "steps": 399,
+   "http_calls": 4328,
+   "invariant_checks": 795,
+   "seconds": 84.5,
+   "real_model": false,
+   "code": null
+  },
+  {
+   "mode": "random",
+   "seed": 32,
+   "ok": true,
+   "steps": 400,
+   "http_calls": 3962,
+   "invariant_checks": 713,
+   "seconds": 70.4,
+   "real_model": false,
+   "code": null
+  },
+  {
+   "mode": "random",
+   "seed": 33,
+   "ok": true,
+   "steps": 400,
+   "http_calls": 3808,
+   "invariant_checks": 618,
+   "seconds": 65.0,
+   "real_model": false,
+   "code": null
+  },
+  {
+   "mode": "random",
+   "seed": 34,
+   "ok": true,
+   "steps": 400,
+   "http_calls": 4463,
+   "invariant_checks": 820,
+   "seconds": 83.8,
+   "real_model": false,
+   "code": null
+  },
+  {
+   "mode": "random",
+   "seed": 35,
+   "ok": true,
+   "steps": 400,
+   "http_calls": 4196,
+   "invariant_checks": 816,
+   "seconds": 68.5,
+   "real_model": false,
+   "code": null
+  },
+  {
+   "mode": "random",
+   "seed": 36,
+   "ok": true,
+   "steps": 400,
+   "http_calls": 3444,
+   "invariant_checks": 515,
+   "seconds": 49.9,
+   "real_model": false,
+   "code": null
+  },
+  {
+   "mode": "random",
+   "seed": 37,
+   "ok": true,
+   "steps": 400,
+   "http_calls": 3636,
+   "invariant_checks": 582,
+   "seconds": 53.9,
+   "real_model": false,
+   "code": null
+  },
+  {
+   "mode": "random",
+   "seed": 38,
+   "ok": true,
+   "steps": 400,
+   "http_calls": 3548,
+   "invariant_checks": 563,
+   "seconds": 79.4,
+   "real_model": false,
+   "code": null
+  },
+  {
+   "mode": "random",
+   "seed": 39,
+   "ok": true,
+   "steps": 400,
+   "http_calls": 3634,
+   "invariant_checks": 584,
+   "seconds": 958.8,
+   "real_model": false,
+   "code": null
+  },
+  {
+   "mode": "random",
    "seed": 4,
    "ok": true,
    "steps": 400,
    "http_calls": 3794,
    "invariant_checks": 737,
    "seconds": 60.6,
+   "real_model": false,
+   "code": null
+  },
+  {
+   "mode": "random",
+   "seed": 40,
+   "ok": true,
+   "steps": 400,
+   "http_calls": 4304,
+   "invariant_checks": 820,
+   "seconds": 118.3,
    "real_model": false,
    "code": null
   },
@@ -446,6 +556,17 @@
    "code": null
   },
   {
+   "mode": "routes",
+   "seed": 1,
+   "ok": true,
+   "steps": 0,
+   "http_calls": 88,
+   "invariant_checks": 3,
+   "seconds": 6.2,
+   "real_model": false,
+   "code": null
+  },
+  {
    "mode": "transitions",
    "seed": 1,
    "ok": true,
@@ -461,9 +582,9 @@
    "seed": 1,
    "ok": true,
    "steps": 400,
-   "http_calls": 141,
+   "http_calls": 63,
    "invariant_checks": 2,
-   "seconds": 1455.2,
+   "seconds": 1497.3,
    "real_model": false,
    "code": null
   },
@@ -475,6 +596,28 @@
    "http_calls": 115,
    "invariant_checks": 2,
    "seconds": 25095.0,
+   "real_model": false,
+   "code": null
+  },
+  {
+   "mode": "ui",
+   "seed": 3,
+   "ok": true,
+   "steps": 300,
+   "http_calls": 62,
+   "invariant_checks": 2,
+   "seconds": 1171.1,
+   "real_model": false,
+   "code": null
+  },
+  {
+   "mode": "ui",
+   "seed": 4,
+   "ok": true,
+   "steps": 300,
+   "http_calls": 64,
+   "invariant_checks": 2,
+   "seconds": 375.8,
    "real_model": false,
    "code": null
   }
@@ -530,7 +673,7 @@
    "pairs_total": 192,
    "pairs_covered": 192,
    "paths_total": 126,
-   "paths_covered": 121
+   "paths_covered": 122
   },
   "deal": {
    "states": 2,
@@ -549,41 +692,12 @@
    "states": 5,
    "actions": 8,
    "transitions_total": 40,
-   "transitions_covered": 33,
-   "transitions_missing": [
-    [
-     "active",
-     "engine_up"
-    ],
-    [
-     "cancelled",
-     "analyze"
-    ],
-    [
-     "cancelled",
-     "cancel"
-    ],
-    [
-     "done",
-     "analyze"
-    ],
-    [
-     "failed",
-     "analyze"
-    ],
-    [
-     "failed",
-     "cancel"
-    ],
-    [
-     "idle",
-     "retry"
-    ]
-   ],
+   "transitions_covered": 40,
+   "transitions_missing": [],
    "refusals_total": 3,
-   "refusals_attempted": 2,
+   "refusals_attempted": 3,
    "pairs_total": 320,
-   "pairs_covered": 34,
+   "pairs_covered": 41,
    "paths_total": 0,
    "paths_covered": null
   }
@@ -594,10 +708,10 @@
     "file": "ui_1_sweep.json",
     "seed": 1,
     "sweep": true,
-    "steps": 480,
+    "steps": 332,
     "hard_problems": 0,
     "soft_problems": 0,
-    "controls_used": 426,
+    "controls_used": 310,
     "inventory_used": 103,
     "inventory_total": 200,
     "money_checks": 0,
@@ -615,24 +729,38 @@
     "inventory_total": 200,
     "money_checks": 2,
     "reload_checks": 1
+   },
+   {
+    "file": "ui_3.json",
+    "seed": 3,
+    "sweep": false,
+    "steps": 300,
+    "hard_problems": 0,
+    "soft_problems": 7,
+    "controls_used": 149,
+    "inventory_used": 61,
+    "inventory_total": 200,
+    "money_checks": 2,
+    "reload_checks": 9
+   },
+   {
+    "file": "ui_4.json",
+    "seed": 4,
+    "sweep": false,
+    "steps": 300,
+    "hard_problems": 0,
+    "soft_problems": 1,
+    "controls_used": 197,
+    "inventory_used": 69,
+    "inventory_total": 200,
+    "money_checks": 11,
+    "reload_checks": 13
    }
   ],
-  "controls_used_union": 428,
+  "controls_used_union": 434,
   "inventory_total": 200,
   "inventory_never_used": [
-   "/audiences/:id/sources|button: Add links",
-   "/audiences/:id/sources|button: Paste text",
-   "/audiences/:id/sources|button: Upload files",
    "/audiences/:id/sources|div: Drop files here or click to choose Text# Markdown#",
-   "/audiences/:id/sources|link: Audience Research",
-   "/audiences/:id/sources|link: Audience problems",
-   "/audiences/:id/sources|link: Commercial signals",
-   "/audiences/:id/sources|link: Content & sources",
-   "/audiences/:id/sources|link: Experiments",
-   "/audiences/:id/sources|link: Opportunities",
-   "/audiences/:id/sources|link: Overview",
-   "/audiences/:id/sources|link: Products",
-   "/audiences/:id/sources|link: Reports",
    "/audiences|tr: Hearth & Crumb home bakers (DEMO) DEMO Hearth & Cr",
    "/intelligence|link: Day #-# starter guide",
    "/intelligence|link: Scoring patterns",
@@ -640,36 +768,18 @@
    "/intelligence|link: Why your loaf is flat",
    "/|link: Analysis running for Hearth & Crumb home bakers (D"
   ],
-  "inventory_used_union": 181
+  "inventory_used_union": 193
  },
  "api_routes": {
   "total": 95,
-  "covered": 78,
-  "missing": [
-   "DELETE /api/channels/{id}",
-   "DELETE /api/competitors/{id}",
-   "DELETE /api/orders/{id}",
-   "GET /api/asset-kinds",
-   "GET /api/audiences/{id}",
-   "GET /api/audiences/{id}/analyses",
-   "GET /api/audiences/{id}/competitors",
-   "GET /api/audiences/{id}/intelligence",
-   "GET /api/audiences/{id}/reports",
-   "GET /api/content/{id}",
-   "GET /api/evidence/{id}",
-   "GET /api/frames/{id}/image",
-   "GET /api/health",
-   "GET /api/models/presets",
-   "GET /api/platforms",
-   "GET /api/products/{id}/next-tests",
-   "POST /api/opportunities/{id}/research"
-  ]
+  "covered": 95,
+  "missing": []
  },
  "totals": {
-  "runs": 43,
-  "steps": 23893,
-  "http_calls": 155067,
-  "invariant_checks": 19036,
-  "failed_runs": 2
+  "runs": 56,
+  "steps": 29245,
+  "http_calls": 201435,
+  "invariant_checks": 26970,
+  "failed_runs": 0
  }
 }
