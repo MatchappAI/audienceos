@@ -47,6 +47,10 @@ Tests named below live in `backend/tests/test_audit_2026_11_16.py` (money, gate,
 | A-36 | P3 | Experiments | **Save design** silently deleted success criteria that didn't have a threshold yet. | They're kept and keep showing "set a threshold". | Headless UI check: 3rd criterion saved with blank value, badge shown | Verified fixed |
 | B-01..06 | P2–P3 | Money (2026-11-08 pass, finished here) | Non-ISO money dates silently fell out of statements. Refund could exceed sale. Deal end before start. Raw `net_sales` wording in the CSV. A never-approved draft with orders was shown as "back to draft". Sidebar crushed narrow windows. | Validated server-side, with plain wording and an icon rail. | 4 tests in `test_money.py`; route sweep at 390 px | Verified fixed |
 
+## Live-app QA pass (1.5.1)
+
+21 more defects (L-01 … L-21) were found by operating the running UI. All are fixed and verified in the browser; see `LIVE_QA_REPORT.md`. Two were P1 money issues: an abandoned deal edit could be saved later, and a stale window could overwrite newer deal terms.
+
 ## Still open
 
 | ID | P | Problem | Why open / next step | Status |

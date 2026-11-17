@@ -1,5 +1,20 @@
 # Testing
 
+
+## Session 7 — 2026-11-16 (v1.5.1, live-app QA)
+
+Operated the running app like a person on a scratch copy (port 8761 + a private Ollama on 11435; headless Chrome only): real mouse clicks and typing, keyboard only, drag-and-drop and file-chooser uploads, phone and desktop widths, light and dark, two windows, throttled network, and the AI engine and app server stopped mid-task. Full report: `LIVE_QA_REPORT.md`.
+
+- **Final round on a fresh database:** 224/224 live checks.
+  - J1 9 · full journey 33 · J2 23 · J3 22 · J4 10 · J5 24 · J6 5 · visual 68 · edge 30.
+  - The route sweep: 108 loads; only the 8 deliberate "not found" pages are flagged.
+- **Pytest:** 123 passed. **Build:** clean.
+- **Found and fixed: 21 defects**, two of them P1 money issues:
+  - an abandoned deal edit leaked into a later save;
+  - a stale window overwrote newer deal terms.
+- **New scripts:** `e2e/human.js` (person-style helpers), `5_live_first_run`, `6_inventory`, `7_live_create_edit`, `8_live_money`, `9_live_visual`, `10_live_interruptions`, `11_live_features`, `12_live_cleanup`. **New tests:** `backend/tests/test_live_qa_2026_11_16.py`.
+- **Live app:** it was not running. It was started read-only on 1.5.1 after a fresh backup and applied migration 005. Its empty database and 3 settings were intact. It was then stopped again.
+
 ## Session 6 — 2026-11-16 (v1.5.0, production-readiness audit)
 
 Everything ran on a **scratch copy**: the server on port 8761 with its own data folder, and a private Ollama on port 11435 using the bundled models. The live app (port 8760, `~/AudienceOS/data`) was not running and was never touched. Chrome ran only with `--headless=new`.

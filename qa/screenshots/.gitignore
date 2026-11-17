@@ -1,0 +1,2 @@
+# Full-size PNGs stay local; the small JPG copies are the committed evidence.
+*.png

@@ -130,8 +130,8 @@ export function AnalyzePanel({ a, compact: small }: { a: any; compact?: boolean 
               {busy ? "Starting…" : a.last_analyzed_at ? "Reanalyze" : "Run analysis"}
             </button>
           )}
-          {!hasMaterial && <div className="small muted mt">Add content first.</div>}
-          {importing.length > 0 && !running && <div className="small muted mt">{importing.length} import(s) still processing</div>}
+          {!hasMaterial && !importing.length && <div className="small muted mt">Add content first.</div>}
+          {importing.length > 0 && !running && <div className="small muted mt">Waiting for {importing.length} import{importing.length === 1 ? "" : "s"} to finish{jobs.some((j) => j.kind === "analyze_audience") ? " (another analysis is running first)" : ""}</div>}
         </div>
       </div>
       <ErrorBox error={error} />

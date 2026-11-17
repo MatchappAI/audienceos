@@ -68,6 +68,7 @@ export default function App() {
     <ToastProvider>
       <JobsProvider>
         <EvidenceProvider>
+          <a className="skip" href="#main" onClick={(e) => { e.preventDefault(); document.getElementById("main")?.focus(); }}>Skip to main content</a>
           <div className="app">
             <nav className="side" aria-label="Main">
               <div className="brand">
@@ -95,7 +96,7 @@ export default function App() {
                 </div>
               </div>
             </nav>
-            <main className="main">
+            <main className="main" id="main" tabIndex={-1}>
               <Routes>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/audiences" element={<Research />} />

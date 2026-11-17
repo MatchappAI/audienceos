@@ -244,6 +244,11 @@ details.fold > summary { cursor: pointer; color: var(--sub); font-weight: 550; m
 
 .g-side > .stack:last-child .kv { grid-template-columns: 96px 1fr; }
 
+/* Keyboard users can jump past the sidebar. Hidden until focused. */
+.skip { position: fixed; left: 8px; top: -60px; z-index: 100; background: var(--panel); color: var(--ink); border: 2px solid var(--accent); border-radius: 8px; padding: 8px 12px; }
+.skip:focus { top: 8px; }
+main.main:focus { outline: none; }
+
 /* Channel row in the new-creator form: platform · handle · URL · followers · remove. On a phone: two lines. */
 .chan-row { display: grid; grid-template-columns: 130px minmax(0, 1fr) minmax(0, 1fr) 110px 28px; grid-template-areas: "p h u f x"; gap: 8px; margin-bottom: 8px; }
 .chan-row > :nth-child(1) { grid-area: p; } .chan-row > :nth-child(2) { grid-area: h; } .chan-row > :nth-child(3) { grid-area: u; }

@@ -51,7 +51,7 @@ const FX = path.join(__dirname, '..', 'fixtures', 'demo');
     // --- paste text (audience comments)
     await H.click(page, 'Paste text'); await H.sleep(300);
     await H.fill(page, 'Title', 'DM questions');
-    await page.focus('textarea'); await page.keyboard.type('Where can I buy a gluten-free starter?\nI would pay for a GF loaf course\nMy GF bread is always gummy, help', { delay: 2 });
+    await page.focus('textarea'); await page.keyboard.type('Where can I buy a gluten-free starter?\nI would pay for a GF loaf course\nMy GF bread is always zebrafluff gummy, help', { delay: 2 });
     await H.click(page, 'Each line is a separate audience comment', { sel: 'label' });
     await H.click(page, 'Add text'); await H.sleep(1200);
     t = await H.main(page);
@@ -59,10 +59,12 @@ const FX = path.join(__dirname, '..', 'fixtures', 'demo');
     // same text again → duplicate notice
     await H.click(page, 'Paste text').catch(() => {});
     await H.fill(page, 'Title', 'DM questions');
-    await page.focus('textarea'); await page.keyboard.type('Where can I buy a gluten-free starter?\nI would pay for a GF loaf course\nMy GF bread is always gummy, help', { delay: 1 });
-    await H.click(page, 'Each line is a separate audience comment', { sel: 'label' });
+    await page.focus('textarea'); await page.keyboard.type('Where can I buy a gluten-free starter?\nI would pay for a GF loaf course\nMy GF bread is always zebrafluff gummy, help', { delay: 1 });
+    // the "each line is a comment" box stays ticked after the first paste
+    if (!(await page.$eval('label.check input[type=checkbox]', e => e.checked))) await H.click(page, 'Each line is a separate audience comment', { sel: 'label' });
     await H.click(page, 'Add text');
-    const toast = await page.waitForSelector('.toast', { timeout: 3000 }).then(e => e.evaluate(x => x.innerText)).catch(() => '');
+    // the first paste's "Text added" toast may still be on screen; wait for the new one
+    const toast = await page.waitForFunction(() => /already/.test(document.querySelector('.toast')?.innerText || ''), { timeout: 4000 }).then(() => page.$eval('.toast', x => x.innerText)).catch(async () => page.$eval('.toast', x => x.innerText).catch(() => ''));
     H.check('re-pasting the same text says it was already imported', /already/.test(toast), toast);
     // --- drag & drop upload (a real DataTransfer with files, dropped on the dropzone)
     await H.click(page, 'Upload files');
@@ -137,10 +139,10 @@ const FX = path.join(__dirname, '..', 'fixtures', 'demo');
     await H.click(page, 'Delete audience'); await page.waitForFunction(() => location.pathname === '/audiences', { timeout: 8000 });
     t = await H.main(page);
     H.check('deleted audience disappears from the list', !/Test Baker/.test(t), '', await S('10-after-delete'));
-    const lib = (await H.api('/api/library?q=gummy')).body;
-    H.check('its material is gone from the library search', !JSON.stringify(lib).includes('gummy'), JSON.stringify(lib).slice(0, 120));
+    const lib = (await H.api('/api/library?q=zebrafluff')).body;
+    H.check('its material is gone from the library search', !JSON.stringify(lib).includes('zebrafluff'), JSON.stringify(lib).slice(0, 120));
   } catch (e) { H.check('journey ran without crash', false, e.stack.split('\n').slice(0, 2).join(' '), await H.shot(page, 'j2-crash')); }
-  H.check('no console errors / failed API calls (excluding deliberate 4xx)', problems.filter(p => !/http 4(00|22)/.test(p)).length === 0, problems.join(' ; '));
-  await browser.close();
+  H.check('no console errors / failed API calls (excluding deliberate 4xx)', problems.filter(p => !/http 4(00|22)|status of 4(00|22)/.test(p)).length === 0, problems.join(' ; '));
+  await Promise.race([browser.close(), H.sleep(5000)]).catch(() => {});
   process.exit(H.save('7_live_create_edit') ? 1 : 0);
 })();

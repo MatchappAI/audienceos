@@ -122,7 +122,9 @@ export default function Settings() {
             <label className="field"><span>Vision model for video frames & images (optional)</span>
               <select value={s.ollama_vision_model || ""} onChange={(e) => set("ollama_vision_model", e.target.value)}>
                 <option value="">None — frames are stored but not described</option>
-                {(ollama?.installed_models || []).filter((m: string) => VISION_RX.test(m) || m === s.ollama_vision_model).map((m: string) => <option key={m}>{m}</option>)}
+                {(ollama?.installed_models || []).filter((m: string) => VISION_RX.test(m) || m === s.ollama_vision_model)
+                  .concat(s.ollama_vision_model && !(ollama?.installed_models || []).includes(s.ollama_vision_model) ? [s.ollama_vision_model] : [])
+                  .map((m: string) => <option key={m}>{m}</option>)}
                 {!(ollama?.installed_models || []).some((m: string) => VISION_RX.test(m)) && <option disabled value="__none">No vision-capable model installed — download one below</option>}
               </select></label>
             <div className="row">

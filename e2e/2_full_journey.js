@@ -112,5 +112,7 @@ async function byLabel(page, label, value, idx = 0) {
   log('BROWSER PROBLEMS', JSON.stringify(problems));
   require('fs').writeFileSync(__dirname + '/j2_results.json', JSON.stringify({ results, problems }, null, 1));
   log(`SUMMARY ${results.filter(r => r.ok).length}/${results.length} pass`);
-  await browser.close();
+  // browser.close() can hang after a long run; don't let that keep the process (and a test runner) waiting.
+  await Promise.race([browser.close(), sleep(5000)]).catch(() => {});
+  process.exit(results.every(r => r.ok) ? 0 : 1);
 })();

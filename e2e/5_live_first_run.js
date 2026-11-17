@@ -51,6 +51,6 @@ const H = require('./human');
     H.check('problems tab lists the problem themes the analysis stored', (intel.clusters || []).length > 0 && (intel.clusters || []).every(c => t.includes(c.label || c.name || '')), `clusters=${(intel.clusters || []).length}`, await H.shot(page, 'j1-07-results', true));
   } catch (e) { H.check('journey ran without crash', false, e.message, await H.shot(page, 'j1-crash')); }
   H.check('no console errors / failed API calls', problems.length === 0, problems.join(' ; '));
-  await browser.close();
+  await Promise.race([browser.close(), H.sleep(5000)]).catch(() => {});
   process.exit(H.save('5_live_first_run') ? 1 : 0);
 })();

@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.5.1 — 2026-11-16 (live-app QA pass)
+
+Found by operating the running app like a person: real mouse clicks and typing, keyboard only, phone width, two windows at once, a slow network, the AI engine and the app server stopped mid-task. Details and evidence: `LIVE_QA_REPORT.md`.
+
+**Fixed: money and data**
+- **Cancelling a deal edit didn't throw it away.** Change 70% to 60%, press Cancel, later open the form to fix a note and save: the 60% was saved too, and every balance changed. The form now always reopens on the saved terms.
+- **A second window could silently overwrite newer deal terms.** A page opened before someone changed the deal now gets "These deal terms were changed in another window… Nothing was saved" instead.
+- **Saving a product from an out-of-date window reverted other fields** (for example a newer price). Only the fields you changed are sent.
+- **A follower count typed as "12,5k" was dropped without a word.** Counts like 12500, 12,500, 12.5k and 1.2M are understood; anything else gets a plain message. Channel errors now show inside the channel dialog.
+- **A blank creator, audience or product name** was ignored or saved. It is now refused with "can't be blank".
+
+**Fixed: keyboard and screen readers**
+- Dialogs keep keyboard focus inside them, start on the first field and give focus back when closed. A stray click on the dimmed background no longer closes a form and loses what you typed.
+- The file drop zone, problem rows and source rows work with Tab + Enter. Pressing Enter on a quote opened the evidence drawer and closed it again at once; it now stays open.
+- A "Skip to main content" link for keyboard users.
+
+**Improved**
+- **Stop analysis** button while an analysis runs (with a confirmation).
+- When the local AI engine stops mid-analysis, the message says so in plain words, and the Run button comes back by itself once the engine is restarted.
+- Phone width: status filters wrap instead of hiding two options, label/value lists stack, wide tables scroll inside their card, the new-creator channel row fits.
+- Research Library keeps your search and filters when you open a result and press Back.
+- Closing an asset draft with unsaved edits asks first. Rejecting an opportunity asks first, and isn't offered once a product exists. Removing a channel asks first.
+- The analysis model list no longer offers the embedding model (which can't analyze). "Add content first" no longer shows while imports are still waiting.
+- Dashboard shows the 8 latest activity items, with "Show all".
+- Settings shows the chosen vision model even while the AI engine is off.
+- A "Skip to main content" link; the e2e full journey no longer hangs on exit.
+
 ## 1.5.0 — 2026-11-16 (production-readiness audit)
 
 A full audit: every page and button driven in headless Chrome on a scratch copy, plus an independent security review. Details: `ISSUE_TRACKER.md` (36 issues fixed), `QA_MATRIX.md`, `FINAL_READINESS_REPORT.md`.

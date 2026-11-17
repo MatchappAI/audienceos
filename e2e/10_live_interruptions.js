@@ -59,6 +59,6 @@ async function activeJob(aid) { return ((await H.api('/api/jobs?active=1')).body
       H.check('server back → "Try again" recovers the page', /Instagram comments export/.test(t), retry ? 'via Try again' : 'needed reload', await S('05-server-back'));
     }
   } catch (e) { H.check('journey ran without crash', false, e.stack.split('\n').slice(0, 2).join(' '), await H.shot(page, 'j4-crash', true)); }
-  await browser.close();
+  await Promise.race([browser.close(), H.sleep(5000)]).catch(() => {});
   process.exit(H.save('10_live_interruptions') ? 1 : 0);
 })();

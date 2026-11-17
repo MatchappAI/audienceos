@@ -174,6 +174,6 @@ const money = s => Number(String(s).replace(/[^0-9.-]/g, ''));
     await B.close();
   } catch (e) { H.check('journey ran without crash', false, e.stack.split('\n').slice(0, 2).join(' '), await H.shot(page, 'j3-crash', true)); }
   H.check('no console errors / unexpected failed API calls', problems.filter(p => !/http (400|409|422)|status of (400|409|422)/.test(p)).length === 0, problems.join(' ; '));
-  await browser.close();
+  await Promise.race([browser.close(), H.sleep(5000)]).catch(() => {});
   process.exit(H.save('8_live_money') ? 1 : 0);
 })();
