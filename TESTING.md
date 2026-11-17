@@ -1,5 +1,32 @@
 # Testing
 
+## Session 8 — 2026-11-17 (v1.5.2, pass 3: every path, every action, every sequence)
+
+Model-based testing of the real app. The model (`qa/model.json`) lists 18 screens / 209 controls, 95 API routes and
+six entity state machines (product, opportunity, experiment, asset, deal, analysis job) with the expected result of
+every action in every state. A seeded generator (`qa/mbt/mbt.py`) drives the real server over HTTP and a headless
+Chrome walker (`qa/mbt/ui_walk.js`) drives the real UI, checking invariants after every step (money oracle,
+screen = CSV = PDF = portal = payout file, counts, no 5xx, refused actions change nothing, nothing lost after restart,
+no stuck jobs, no orphans). Results and coverage numbers: `EXHAUSTIVE_QA_REPORT.md` and `qa/mbt/out/summary.json`.
+
+**Re-run with one command** (scratch data in a temp folder, its own ports, never 8760 or `~/AudienceOS/data`; outside
+connections and DNS are cut off inside the server process; Chrome runs `--headless=new`):
+
+```sh
+cd ~/AudienceOS
+backend/.venv/bin/python qa/mbt/mbt.py all --seed 1              # transitions, pairs, paths, pairwise, fuzz, jobs, random, then summary
+backend/.venv/bin/python qa/mbt/mbt.py random --seed 7 --steps 400   # one random sequence; failures shrink to qa/mbt/regressions/
+backend/.venv/bin/python qa/mbt/mbt.py seeds --seed 1 --seeds 20     # 20 consecutive seeds
+backend/.venv/bin/python qa/mbt/mbt.py ui --seed 2 --steps 300       # random UI walk (add --sweep: every control on every screen)
+backend/.venv/bin/python qa/mbt/mbt.py random --seed 101 --steps 60 --real-model   # bundled qwen2.5:7b instead of the stand-in
+backend/.venv/bin/python qa/mbt/mbt.py summary                   # coverage per criterion from qa/mbt/out/*.json
+backend/.venv/bin/python qa/mbt/mbt.py model                     # rewrite qa/model.json
+```
+
+Most runs use `qa/mbt/fake_ollama.py`, a stand-in AI engine that answers from the JSON schema the app sends and can
+be switched to invalid, garbage, slow or failing answers. Regression tests for every defect found:
+`backend/tests/test_exhaustive_2026_11_17.py` and `e2e/13_leave_guard.js`.
+
 
 ## Session 7 — 2026-11-16 (v1.5.1, live-app QA)
 

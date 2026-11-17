@@ -164,6 +164,17 @@ class World:
             self.s.wait_idle(300)
         return aud
 
+    def reset_demo(self):
+        demo_pids = [p["id"] for p in self.ok("GET", "/api/products") if p.get("is_demo")]
+        self.call("DELETE", "/api/demo")
+        for pid in demo_pids:
+            self.product_org.pop(pid, None)
+        orgs = {c["id"] for c in self.ok("GET", "/api/creators")["creators"]}
+        for org in list(self.payouts):
+            if org not in orgs:
+                self.payouts.pop(org)
+        self.engine_ready()
+
     def engine_ready(self):
         self.e.start()
         self.e.mode("valid")
@@ -916,9 +927,14 @@ class Factory:
         # A fresh opportunity: copy by re-reading the list and picking one not used yet; when they run out, re-analyze.
         used = getattr(self, "_used", set())
         opps = [o for o in w.ok("GET", "/api/opportunities") if o["id"] not in used]
-        for _ in range(6):
+        for k in range(6):
             if opps:
                 break
+            if k == 2:  # the walk may have deleted the demo's comments: start the demo again from its fixtures
+                w.reset_demo()
+                self.demo = w.ensure_demo_analyzed()
+                opps = [o for o in w.ok("GET", "/api/opportunities") if o["id"] not in used]
+                continue
             w.e.start()
             w.e.mode("valid")
             w.ok("PUT", "/api/settings", json={"values": {"ai_provider": "ollama"}})
@@ -997,6 +1013,8 @@ def boot(seed, real=False, data=None):
     eng = Engine(free_port(11471 if not real else 11481), real=real)
     srv = Server(free_port(8771), eng.url, data=data)
     eng.logdir = srv.data
+    if real:
+        srv.idle_scale = 5.0
     eng.start()
     if not real:
         eng.mode("valid", seed=seed)
@@ -1157,10 +1175,10 @@ def mode_random(w: World, seed: int, steps: int, real: bool = False):
         else:
             if eid is None:
                 continue
-            d = DRIVERS[m](w)
-            if m == "experiment" and d.state(eid) == "deleted" and a != "delete":
-                pass
-            d.run(eid, a)
+            if m in ("opportunity", "product", "deal") and not exists(w, m, eid):
+                ents[m].remove(eid)  # gone with its audience or a demo reset
+                continue
+            DRIVERS[m](w).run(eid, a)
         if i % 3 == 0 and r.random() < .3:  # sometimes act on brand-new entities
             m2 = r.choice(list(DRIVERS))
             try:
@@ -1181,10 +1199,16 @@ def env_action(w: World, f: Factory, ents, jobs_seen, a, real):
     r = w.r
     s = w.s
     if a in ("restart_server", "restart_hard"):
+        quiet = s.wait_idle(20)  # a running job keeps changing counts; compare a quiet app where possible
         before = w.snapshot()
         s.restart(hard=(a == "restart_hard"))
         w.keys = False  # with AUDIENCEOS_NO_KEYCHAIN the keys live in memory only (the real app keeps them in the Keychain)
         after = w.snapshot()
+        if not quiet:  # jobs were mid-flight: everything except money/products must match after they finish
+            s.wait_idle(120)
+            keep = ("/api/products", "/api/creators", "/api/experiments")
+            before = {k: v for k, v in before.items() if k in keep}
+            after = {k: v for k, v in w.snapshot().items() if k in keep}
         need(before == after, "lost-after-restart", diff(before, after))
     elif a == "engine_down" and not real:
         w.e.stop()
@@ -1344,7 +1368,13 @@ def env_action(w: World, f: Factory, ents, jobs_seen, a, real):
     elif a == "rename_creator":
         auds = w.ok("GET", "/api/audiences")
         if auds:
-            w.ok("PATCH", f"/api/audiences/{r.choice(auds)['id']}", json={"org_name": r.choice(["Renamed ✨", "=HYPERLINK(\"http://x\")", "O'Brien & Co"])})
+            new = r.choice(["Renamed ✨", "=HYPERLINK(\"http://x\")", "O'Brien & Co"])
+            aud = r.choice(auds)
+            rr = w.call("PATCH", f"/api/audiences/{aud['id']}", json={"org_name": new})
+            taken = any(c["name"].casefold() == new.casefold() and c["id"] != aud["organization_id"] and not c.get("is_demo")
+                        for c in w.ok("GET", "/api/creators")["creators"])
+            need(rr.status_code == (409 if taken else 200) or (aud.get("is_demo") and rr.status_code == 200), "rename-rule",
+                 f"rename to a {'taken' if taken else 'free'} name -> {rr.status_code}")
     elif a == "rapid_repeat_sale":
         pids = [p for p in w.product_org]
         if pids:
@@ -1433,7 +1463,7 @@ def mode_pairwise(w: World, f: Factory):
         blocked0 = w.ok("GET", "/api/__qa/blocked")["n"]
         auds = w.ok("GET", "/api/audiences")
         if auds:
-            aud = auds[0]
+            aud = max(auds, key=lambda a: a["source_count"])  # one with material, so an external call is really attempted
             rr = w.call("POST", f"/api/audiences/{aud['id']}/analyze", json={})
             if not avail:
                 need(rr.status_code == 400 and rr.json()["detail"], "analyze-refused-plainly", f"{row}: {rr.status_code} {rr.text[:200]}")
@@ -1614,6 +1644,62 @@ def mode_fuzz(w: World, f: Factory):
     return {"requests": n}
 
 
+def mode_routes(w: World, f: Factory):
+    """Every API route at least once (reads and deletes the other modes don't reach)."""
+    aud = w.ensure_demo_analyzed()
+    aid = aud["id"]
+    real = w.new_creator()
+    for p in ("/api/health", "/api/platforms", "/api/models/presets", "/api/asset-kinds", f"/api/audiences/{aid}",
+              f"/api/audiences/{aid}/analyses", f"/api/audiences/{aid}/competitors", f"/api/audiences/{aid}/intelligence",
+              f"/api/audiences/{aid}/reports", "/api/optimize", "/api/payouts/due", "/api/experiments-compare?ids=x"):
+        r = w.call("GET", p)
+        need(r.status_code in (200, 404) and r.status_code < 500, "route", f"{p} -> {r.status_code}")
+    intel = w.ok("GET", f"/api/audiences/{aid}/intelligence")
+    src = w.ok("GET", f"/api/audiences/{aid}/sources")
+    for s_ in src:
+        full = w.ok("GET", f"/api/sources/{s_['id']}")
+        for it in full["items"][:2]:
+            ci = w.ok("GET", f"/api/content/{it['id']}")
+            for fr in ci.get("frames", [])[:1]:
+                need(w.call("GET", f"/api/frames/{fr['id']}/image").status_code in (200, 404), "frame", "")
+    need(w.call("GET", "/api/frames/fr_missing/image").status_code == 404, "frame-missing", "")
+    ev = w.ok("GET", "/api/library", params={"kind": "evidence"}).get("evidence", [])
+    if ev:
+        w.ok("GET", f"/api/evidence/{ev[0]['id']}")
+    need(w.call("GET", "/api/evidence/ev_missing").status_code == 404, "evidence-missing", "")
+    ch = w.ok("POST", f"/api/audiences/{real['id']}/channels", json={"platform": "youtube", "follower_count": 5})["channels"][-1]
+    w.ok("DELETE", f"/api/channels/{ch['id']}")
+    oid = w.ok("GET", "/api/opportunities")[0]["id"]
+    c = w.ok("POST", f"/api/audiences/{aid}/competitors", json={"name": "Rival", "url": "rival.example"})["competitor"]
+    w.ok("DELETE", f"/api/competitors/{c['id']}")
+    x = w.ok("POST", "/api/experiments", json={"opportunity_id": oid})
+    imp = w.call("POST", f"/api/experiments/{x['id']}/import",
+                 files={"file": ("o.csv", b"order_id,amount,created\nq1,29,2026-01-02\nq2,29,2026-01-03\n", "text/csv")})
+    need(imp.status_code == 200, "exp-orders", imp.text[:200])
+    orders = w.ok("GET", f"/api/experiments/{x['id']}")["orders"]
+    if orders:
+        after = w.ok("DELETE", f"/api/orders/{orders[0]['id']}")
+        need(len(after["orders"]) == len(orders) - 1, "order-delete", "")
+    p = w.new_product(real)
+    w.ok("GET", f"/api/products/{p['id']}/next-tests")
+    # competitor research: refused without a key; with a (fake) key it is attempted and stopped at the firewall
+    rr = w.call("POST", f"/api/opportunities/{oid}/research")
+    if rr.status_code == 200:
+        w.s.wait_idle(60)
+        j = w.ok("GET", f"/api/jobs/{rr.json()['job_id']}")
+        need(j["status"] in ("failed", "done") and "Traceback" not in (j.get("error") or ""), "research-job", str(j.get("error"))[:200])
+    w.ok("PUT", "/api/secrets/brave_api_key", json={"value": "fake-qa-key"})
+    w.ok("PUT", "/api/settings", json={"values": {"allow_web_research": True}})
+    rr = w.call("POST", f"/api/opportunities/{oid}/research")
+    need(rr.status_code < 500, "research", str(rr.status_code))
+    if rr.status_code == 200:
+        w.s.wait_idle(60)
+        j = w.ok("GET", f"/api/jobs/{rr.json()['job_id']}")
+        need(j["status"] in ("failed", "done"), "research-job-ends", j["status"])
+    after_step_checks(w, deep=True)
+    return {"intelligence_keys": sorted(intel)[:5]}
+
+
 # ---------------- jobs / engine states ----------------
 
 def mode_jobs(w: World, f: Factory):
@@ -1719,6 +1805,40 @@ def mode_jobs(w: World, f: Factory):
         w.ok("POST", f"/api/jobs/{jid}/retry")
         hit("failed", "retry", "active")
         w.check_jobs_settled()
+    # every remaining (state, action) of the job machine, really performed
+    w.e.mode("valid")
+    def ended(mode="valid", cancel=False, delay=0.0):
+        j = go(mode, delay)
+        if cancel:
+            time.sleep(0.3)
+            w.ok("POST", f"/api/jobs/{j}/cancel")
+        w.check_jobs_settled()
+        return j, jstate(j)
+    for want, kw in (("done", {}), ("failed", {"mode": "error"}), ("cancelled", {"mode": "slow", "delay": 3, "cancel": True})):
+        j, st = ended(**kw)
+        if st != want:
+            continue
+        w.e.mode("valid")
+        rr = w.call("POST", f"/api/jobs/{j}/cancel")  # cancelling a finished job changes nothing
+        need(rr.status_code == 200 and jstate(j) == want, "cancel-finished", f"{want} -> {jstate(j)}")
+        hit(want, "cancel", want)
+        j2 = go("valid")  # a new analysis from this state
+        hit(want, "analyze", "active")
+        w.check_jobs_settled()
+    j = go("slow", delay=3)
+    time.sleep(0.5)
+    w.e.start()
+    hit("active", "engine_up", "active")
+    w.e.mode("garbage")
+    hit("active", "engine_garbage", "active")
+    rr = w.call("POST", f"/api/jobs/{j}/retry")
+    need(rr.status_code == 400, "retry-active-refused", str(rr.status_code))
+    w.cov.hit("analysis_job", "jobr", "active", "retry", "active", False, True)
+    w.check_jobs_settled()
+    w.e.mode("valid")
+    rr = w.call("POST", "/api/jobs/job_doesnotexist/retry")
+    need(rr.status_code == 404, "retry-missing", str(rr.status_code))
+    w.cov.hit("analysis_job", "jobi", "idle", "retry", "idle", False, True)
     for s in ("done", "failed", "cancelled", "idle"):
         for a in ("engine_down", "engine_up", "engine_garbage", "restart_server", "wait"):
             hit(s, a, s)
@@ -1922,6 +2042,8 @@ def run_cli(args):
             result["fuzz"] = mode_fuzz(w, f)
         elif args.mode == "jobs":
             result["jobs"] = mode_jobs(w, f)
+        elif args.mode == "routes":
+            result["routes"] = mode_routes(w, f)
         elif args.mode == "ui":
             result["ui"] = mode_ui(w, seed, args.steps, sweep=args.sweep)
     except Exception as e:
@@ -2063,7 +2185,7 @@ def _route_match(route: str, seen: str) -> bool:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("mode", choices=["transitions", "pairs", "paths", "random", "pairwise", "fuzz", "jobs", "summary", "all", "seeds", "replay", "ui", "model"])
+    ap.add_argument("mode", choices=["transitions", "pairs", "paths", "random", "pairwise", "fuzz", "jobs", "summary", "all", "seeds", "replay", "ui", "model", "routes"])
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--steps", type=int, default=400)
     ap.add_argument("--seeds", type=int, default=5, help="for 'seeds': how many consecutive seeds from --seed")
@@ -2091,7 +2213,7 @@ def main():
         sys.exit(1 if bad else 0)
     if args.mode == "all":
         bad = 0
-        for m in ("transitions", "pairs", "paths", "pairwise", "fuzz", "jobs", "random"):
+        for m in ("transitions", "pairs", "paths", "pairwise", "fuzz", "jobs", "routes", "random"):
             bad += not run_cli(argparse.Namespace(**{**vars(args), "mode": m}))["ok"]
         summarize()
         sys.exit(1 if bad else 0)

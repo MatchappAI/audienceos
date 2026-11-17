@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { errText, get } from "../api";
 import { isNil, money, num, pct } from "../format";
 
@@ -130,7 +131,10 @@ export function ErrorBox({ error, onRetry }: { error: string | null; onRetry?: (
   return (
     <div className="notice bad row between" role="alert">
       <span>{error}</span>
-      {onRetry && (
+      {/* "X not found" (deleted, or an old link) never succeeds on retry: offer a way out instead of a loop. */}
+      {onRetry && /not found/i.test(error) ? (
+        <Link className="btn sm" to="/">Go to the dashboard</Link>
+      ) : onRetry && (
         <button className="btn sm" onClick={onRetry}>
           Try again
         </button>

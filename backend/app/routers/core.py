@@ -314,6 +314,16 @@ class AudienceIn(BaseModel):
     channels: list[ChannelIn] = []
 
 
+def _org_named(c, name: str) -> str | None:
+    """The (non-demo) creator with this name, compared without case — also for non-English letters, which SQLite's
+    lower() leaves as they are."""
+    want = name.strip().casefold()
+    for oid, n in c.execute("SELECT id, name FROM organizations WHERE is_demo=0 ORDER BY created_at").fetchall():
+        if (n or "").strip().casefold() == want:
+            return oid
+    return None
+
+
 @r.get("/audiences")
 def list_audiences():
     return db.all_("""SELECT a.*, o.name AS org_name, o.kind AS org_kind,
@@ -330,8 +340,8 @@ def list_audiences():
 def create_audience(body: AudienceIn):
     now = db.now()
     with db.tx() as c:
-        org = c.execute("SELECT id FROM organizations WHERE lower(name)=lower(?) AND is_demo=0", (body.org_name.strip(),)).fetchone()
-        org_id = org[0] if org else db.insert(c, "organizations", {
+        org = _org_named(c, body.org_name)
+        org_id = org if org else db.insert(c, "organizations", {
             "id": db.new_id("org"), "workspace_id": "ws_default", "name": body.org_name.strip(),
             "kind": body.org_kind if body.org_kind in ("creator", "business", "publisher", "community", "other") else "other",
             "description": body.description, "created_at": now, "updated_at": now})
@@ -391,6 +401,10 @@ def patch_audience(aid: str, body: AudiencePatch):
     d = body.model_dump(exclude_none=True)
     org_name = d.pop("org_name", None)
     with db.tx() as c:
+        other = _org_named(c, org_name) if org_name else None
+        if other and other != a["organization_id"]:
+            # Two creators with one name made "Add creator" attach new audiences to whichever came first.
+            raise HTTPException(409, f"Another creator is already called '{org_name}'. Choose a different name.")
         db.update(c, "audiences", aid, {**d, "updated_at": db.now()})
         if org_name:
             c.execute("UPDATE organizations SET name=?, updated_at=? WHERE id=?", (org_name, db.now(), a["organization_id"]))

@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.5.2 — 2026-11-17 (pass 3: model-based testing)
+
+Found by a seeded generator that drives the real app through every action in every state, every pair of actions, every lifecycle path, pairwise settings, fuzzed inputs and long random sequences, with the money checked after every step. Details: `EXHAUSTIVE_QA_REPORT.md`.
+
+**Fixed: money**
+- **Creator share could be one cent short.** 30% of 19 + 120.50 + 120.50 − 0.85 fee is 77.745, which rounds to 77.75; float sums gave 77.74, and every statement, CSV, PDF, portal and payout file carried it. Shares are now worked out in exact decimals.
+- **Amounts with fractions of a cent were stored as typed** (or imported), so gross showed $0.01 for a $0.015 sale while the shares used the unrounded amount. Every money input is now stored in whole cents (half-up).
+- **One bad number could break a record for good.** Infinity, 1e999 or 1e308 in a price, sale, cost, payout, guarantee or experiment result was stored, and from then on that page (and the dashboard) answered "Something went wrong". Such numbers are refused with a plain message.
+- **More purchases than visits** (a typo) crashed the experiment page, the experiments list and the dashboard. It now shows a note asking you to check the numbers.
+
+**Fixed: consistency and safety**
+- An opportunity that already has a product can no longer be rejected (the page already hid the button; the API and the experiment "Stop" decision didn't agree).
+- CSV exports (statement, payout file, report CSVs) neutralise cells a spreadsheet would run as a formula (`=`, `+`, `-`, `@`), including audience quotes copied from the internet.
+- Malformed links (over-long names, hidden right-to-left characters, bad ports) are refused in plain words instead of an error.
+- Unknown values for the AI provider, theme or Whisper model are refused (an unknown provider made the dashboard fail).
+- An invalid audience status, a CSV with a cell over the size limit and a `null` name or status were answered with an error page; they now get a plain message or are ignored.
+- A refused request no longer echoes the rejected value back (it could itself fail to send).
+
+**UX**
+- Leaving the product setup or the deal form with unsaved edits (sidebar, breadcrumbs, closing the tab) now asks first.
+- The experiment page explains that Stop doesn't reject an idea that already has a product.
+
 ## 1.5.1 — 2026-11-16 (live-app QA pass)
 
 Found by operating the running app like a person: real mouse clicks and typing, keyboard only, phone width, two windows at once, a slow network, the AI engine and the app server stopped mid-task. Details and evidence: `LIVE_QA_REPORT.md`.

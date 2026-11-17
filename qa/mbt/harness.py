@@ -175,7 +175,10 @@ class Server:
     def db(self):
         return sqlite3.connect(f"file:{self.data / 'audienceos.db'}?mode=ro", uri=True, timeout=5)
 
+    idle_scale = 1.0  # the real local model is ~50x slower than the stand-in
+
     def wait_idle(self, timeout: float = 120) -> bool:
+        timeout *= self.idle_scale
         t0 = time.time()
         while time.time() - t0 < timeout:
             active = self.get("/api/jobs", params={"active": True}).json()

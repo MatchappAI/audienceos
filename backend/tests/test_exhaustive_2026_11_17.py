@@ -188,3 +188,16 @@ def test_creator_share_is_exact_half_up_on_the_cent(client):
     assert st["entitlement"]["earned"] == 77.75 and st["balance_owed"] == 77.75
     client.post(f"/api/creators/{org}/deal", json={"creator_share_pct": 30, "basis": "net_sales", "loss_carry_forward": True})
     assert client.get(f"/api/creators/{org}/statement").json()["totals"]["creator_share"] == 77.75
+
+
+# M-11 (random seed 24): renaming a creator to a name another creator already had made two creators with one name, and
+# "Add creator" with that name then attached the new audience to whichever came first. Non-English letters didn't
+# match at all (SQLite lower() is ASCII-only).
+def test_creator_names_stay_unique(client):
+    a1, o1 = _org(client, "Ñandú Bakes")
+    a2, o2 = _org(client, "Other Bakes")
+    r = client.patch(f"/api/audiences/{a2['id']}", json={"org_name": "ñandú bakes"})
+    assert r.status_code == 409 and "already called" in r.json()["detail"]
+    assert client.patch(f"/api/audiences/{a1['id']}", json={"org_name": "Ñandú Bakes Co"}).status_code == 200
+    a3 = client.post("/api/audiences", json={"org_name": "ÑANDÚ BAKES CO"}).json()
+    assert a3["organization_id"] == o1

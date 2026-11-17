@@ -15,6 +15,8 @@ const os = require('os');
 const BASE = process.env.BASE; const CTRL = process.env.CTRL;
 if (!BASE || /:8760\b/.test(BASE)) { console.error('BASE must be a scratch server, never :8760'); process.exit(2); }
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
+// In a sweep every confirm() is answered Cancel, so a Delete on one screen doesn't remove the record the next
+// screens need (the random walk answers OK about two times in three).
 const SWEEP = process.argv.includes('--sweep');
 const SEED = +arg('seed', 1), STEPS = +arg('steps', 200), OUTF = arg('out', path.join(__dirname, 'out', `ui_${SEED}.json`));
 function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
@@ -43,7 +45,7 @@ const norm = s => (s || '').replace(/\s+/g, ' ').replace(/\$?[\d,]+(\.\d+)?%?/g,
     page.on('response', r => { if (r.url().startsWith(BASE + '/api/') && r.status() >= 500) problems.push({ step: stats.steps, kind: '5xx', msg: `${r.status()} ${r.request().method()} ${r.url().replace(BASE, '')}`, last: lastStep, tag });
       if (r.url().startsWith(BASE + '/api/') && r.status() >= 400 && r.status() < 500 && r.request().method() !== 'GET' && lastStep && lastStep.kind === 'control') {
         const k = lastStep.key; offeredFailed[k] = (offeredFailed[k] || 0) + 1; } });
-    page.on('dialog', async d => { if (d.type() === 'confirm' && rnd() < 0.35) { stats.confirms.dismissed++; await d.dismiss(); } else { stats.confirms.accepted++; await d.accept(); } });
+    page.on('dialog', async d => { if (d.type() === 'confirm' && (SWEEP || rnd() < 0.35)) { stats.confirms.dismissed++; await d.dismiss(); } else { stats.confirms.accepted++; await d.accept(); } });
     const cdp = await page.target().createCDPSession();
     await cdp.send('Browser.setDownloadBehavior', { behavior: 'deny' }).catch(() => {});
     return cdp;
