@@ -6,6 +6,7 @@ import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -54,6 +55,14 @@ async def guard(request: Request, call_next):
     if not request.url.path.startswith("/api/assets") and not request.url.path.startswith("/api/reports"):
         resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
     return resp
+
+
+@app.exception_handler(RequestValidationError)
+async def invalid_request(request: Request, exc: RequestValidationError):
+    # FastAPI's default 422 echoes the rejected input back; an input like Infinity can't be written as JSON, so the
+    # refusal itself crashed into a 500. Send only where and why (all the page shows), never the value.
+    return JSONResponse({"detail": [{"loc": list(e.get("loc", [])), "msg": str(e.get("msg", "")), "type": e.get("type")}
+                                    for e in exc.errors()]}, status_code=422)
 
 
 @app.exception_handler(Exception)

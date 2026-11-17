@@ -7,7 +7,9 @@ from pathlib import Path
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field, field_validator
+
+from ..apimodel import BaseModel
 
 from .. import cleanup, config, db, jobs, settings_store
 from ..ai import providers
@@ -37,7 +39,7 @@ def system():
     return {"providers": providers.status_all(), "active_provider": settings_store.get("ai_provider"),
             "media": {**media.status(), "ocr": ocr.available()}, "settings": settings_store.get_all(),
             "data_dir": str(config.DATA_DIR),
-            "version": "1.5.1"}
+            "version": "1.5.2"}
 
 
 class SettingsIn(BaseModel):
@@ -371,7 +373,7 @@ class AudiencePatch(BaseModel):
     name: str | None = None
     niche: str | None = None
     description: str | None = None
-    status: str | None = None
+    status: str | None = Field(default=None, pattern="^(active|archived)$")
     org_name: str | None = None
 
     @field_validator("name", "org_name")

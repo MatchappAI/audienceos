@@ -39,7 +39,7 @@ def _sum(events, k):
 
 
 def wilson(k: int, n: int, z: float = 1.96):
-    if n <= 0:
+    if n <= 0 or k < 0 or k > n:  # more purchases than visits (a typo or a mixed-up column): no interval, and no crash
         return None
     p = k / n
     d = 1 + z * z / n
@@ -105,6 +105,9 @@ def compute(exp: dict, events: list[dict], orders: list[dict]) -> dict:
               "landing_visits": lv if has["landing_visits"] else None,
               "checkout_visits": cv if has["checkout_visits"] else None}
     ci = wilson(purchases, lv) if has["landing_visits"] and have_purch and lv else None
+    if has["landing_visits"] and have_purch and lv and purchases > lv:
+        notes.append(f"More purchases ({purchases:g}) than landing-page visits ({lv:g}) are recorded. Check the numbers: "
+                     "the visit-to-purchase rate can't be worked out until they add up.")
     return {"values": vals, "metrics": metrics, "totals": totals, "notes": notes, "purchase_conversion_ci95": ci,
             "has_data": bool(events or orders)}
 
@@ -179,7 +182,7 @@ def _num(v):
         return None
     try:
         n = float(s)
-        return n if n >= 0 else None
+        return n if 0 <= n < float("inf") else None  # "inf"/"nan" in a CSV cell are not numbers
     except ValueError:
         return None
 

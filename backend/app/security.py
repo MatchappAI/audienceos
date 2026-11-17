@@ -57,15 +57,22 @@ def check_url(url: str) -> None:
         raise FetchError("Only http and https links are supported.", "bad_scheme")
     if p.username or p.password:
         raise FetchError("Links containing credentials are not allowed.", "bad_url")
-    if not p.hostname:
+    try:
+        host, port = p.hostname, p.port  # .port raises ValueError for "https://x:abc"
+        if host:
+            host.encode("idna")  # an over-long or malformed name (e.g. RTL control characters) can't be looked up
+    except (ValueError, UnicodeError):
+        raise FetchError("That link isn't a valid web address.", "bad_url")
+    if not host:
         raise FetchError("That link has no host name.", "bad_url")
-    if p.port not in (None, 80, 443):
+    if port not in (None, 80, 443):
         raise FetchError("Only standard web ports (80/443) are allowed.", "bad_port")
-    host = p.hostname
     if host in ("localhost",) or host.endswith(".local") or host.endswith(".internal"):
         raise FetchError("Local network addresses are blocked for safety.", "private_address")
     try:
-        infos = socket.getaddrinfo(host, p.port or (443 if p.scheme == "https" else 80), proto=socket.IPPROTO_TCP)
+        infos = socket.getaddrinfo(host, port or (443 if p.scheme == "https" else 80), proto=socket.IPPROTO_TCP)
+    except UnicodeError:
+        raise FetchError("That link isn't a valid web address.", "bad_url")
     except socket.gaierror:
         raise FetchError(f"Could not find the website '{host}'. Check the link or your internet connection.", "dns")
     for info in infos:

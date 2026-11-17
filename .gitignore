@@ -21,3 +21,7 @@ frontend/dist/
 .env
 .env.*
 .claude/
+
+# model-based test runs (qa/mbt): raw per-run output; the summary is committed
+qa/mbt/out/*
+!qa/mbt/out/summary.json

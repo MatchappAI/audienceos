@@ -1,10 +1,9 @@
 """Research report export: HTML (self-contained), PDF, JSON and CSV. Built only from stored data."""
-import csv
 import html
 import json
 import re
 
-from .. import config, db
+from .. import config, csvsafe, db
 from . import economics, experiments, intel, scoring
 
 INTENT_LABEL = {"engagement": "Engagement", "curiosity": "Curiosity", "free_info_request": "Free-info request",
@@ -191,14 +190,14 @@ def build(audience_id: str) -> dict:
     render_pdf(d, files["pdf"])
     files["json"].write_text(json.dumps(d, indent=2, default=str))
     with open(files["opportunities_csv"], "w", newline="") as f:
-        w = csv.writer(f)
+        w = csvsafe.writer(f)
         w.writerow(["name", "product_type", "buyer", "problem", "price", "price_model", "index_0_100",
                     "production_cost", "fulfillment_cost_per_unit", "status", "evidence_count"])
         for o in d["opportunities"]:
             w.writerow([o["name"], o["product_type"], o["buyer"], o["problem"], o["price"], o["price_model"],
                         o["total_score"], o["production_cost"], o["fulfillment_cost_per_unit"], o["status"], len(o["evidence"])])
     with open(files["signals_csv"], "w", newline="") as f:
-        w = csv.writer(f)
+        w = csvsafe.writer(f)
         w.writerow(["problem", "signal_type", "intent_level", "summary", "quote", "platform", "source", "locator"])
         labels = {c["id"]: c["label"] for c in d["intelligence"]["clusters"]}
         an = d["intelligence"]["analysis"]

@@ -1,4 +1,5 @@
 """API: opportunities, competitors, experiments, assets, reports, and agency operations (deals, products, sales, payouts)."""
+import csv
 import re
 from pathlib import Path
 
@@ -7,9 +8,11 @@ from fastapi.responses import FileResponse, HTMLResponse
 from datetime import date as _date
 from typing import Annotated
 
-from pydantic import BaseModel, BeforeValidator, Field, field_validator, model_validator
+from pydantic import AfterValidator, BeforeValidator, Field, field_validator, model_validator
 
-from .. import config, db, jobs
+from ..apimodel import BaseModel
+
+from .. import config, csvsafe, db, jobs
 from ..ai.rules import strip_refs
 from ..ingest.store import parse_date, pick
 from ..services import agency, assets, competitors, economics, experiments as ex, reports, scoring
@@ -38,6 +41,20 @@ def _required_iso_date(v):
 
 
 IsoDate = Annotated[str | None, BeforeValidator(_iso_date)]
+
+
+def _cents(v):
+    """Money is stored in whole cents (half-up). A typed or imported 10.005 used to be stored as-is: the statement then
+    showed gross 0.01 for a 0.015 sale while the shares were worked out from the unrounded amount."""
+    if v is None:
+        return None
+    if v != v or abs(v) > 1e12:
+        raise ValueError("must be a normal amount")
+    return agency.money(v)
+
+
+Cents = Annotated[float, AfterValidator(_cents)]
+OptCents = Annotated[float | None, AfterValidator(_cents)]
 
 r = APIRouter(prefix="/api")
 
@@ -101,6 +118,12 @@ class OppPatch(BaseModel):
 def patch_opp(oid: str, body: OppPatch):
     o = must(db.one("SELECT * FROM opportunities WHERE id=?", (oid,)), "Opportunity")
     d = body.model_dump(exclude_none=True)
+    if body.status == "rejected" and o["status"] != "rejected" and db.scalar(
+            "SELECT COUNT(*) FROM products WHERE opportunity_id=?", (oid,)):
+        # The page hides Reject once a product exists; the API now agrees, so a product can't end up selling under a
+        # rejected idea (and Restore can't then silently send it back to "proposed").
+        raise HTTPException(409, "This opportunity already has a product, so it can't be rejected. "
+                                 "Retire the product on its page instead.")
     if "scenario" in d:
         d["scenario_json"] = d.pop("scenario")
     if "scores" in d:
@@ -240,6 +263,9 @@ def patch_exp(xid: str, body: ExperimentIn):
     d = body.model_dump(exclude_unset=True)
     d.pop("opportunity_id", None)
     d.pop("audience_id", None)
+    for k in ("name", "status"):  # required columns: an explicit null means "leave it", not "erase it" (was a 500)
+        if k in d and d[k] is None:
+            d.pop(k)
     if "criteria" in d:
         d["criteria_json"] = d.pop("criteria") or []
     if d.get("checkout_url") and not re.match(r"^https://", d["checkout_url"]):
@@ -311,7 +337,11 @@ async def _read_csv(f: UploadFile) -> str:
 @r.post("/experiments/{xid}/import")
 async def import_exp(xid: str, file: UploadFile = File(...)):
     must(db.one("SELECT id FROM experiments WHERE id=?", (xid,)), "Experiment")
-    res = ex.import_csv(xid, await _read_csv(file))
+    text = await _read_csv(file)
+    try:
+        res = ex.import_csv(xid, text)
+    except csv.Error as e:
+        raise HTTPException(400, f"This CSV can't be read ({e}). Export it again as CSV UTF-8.")
     return {"result": res, "experiment": exp_full(xid)}
 
 
@@ -328,7 +358,9 @@ def decide(xid: str, body: DecisionIn):
                                           "updated_at": db.now()})
         if x["opportunity_id"]:
             st = {"go": "validated", "stop": "rejected", "revise": "testing"}[body.decision]
-            c.execute("UPDATE opportunities SET status=?, updated_at=? WHERE id=?", (st, db.now(), x["opportunity_id"]))
+            has_product = c.execute("SELECT 1 FROM products WHERE opportunity_id=? LIMIT 1", (x["opportunity_id"],)).fetchone()
+            if not (st == "rejected" and has_product):  # an idea with a product is retired via the product, not rejected
+                c.execute("UPDATE opportunities SET status=?, updated_at=? WHERE id=?", (st, db.now(), x["opportunity_id"]))
         db.log_activity(c, x["audience_id"], "decision",
                         f"Decision on '{x['name']}': {body.decision.upper()} (app recommended: {x['evaluation']['recommendation']})")
     return exp_full(xid)
@@ -580,7 +612,7 @@ def creator_statement_csv(org_id: str, start: str | None = None, end: str | None
     cols = ["product", "orders", "gross", "refunds", "net_sales", "fees", "shared_costs", "split_base", "creator_share",
             "agency_share", "agency_only_costs"]
     with open(path, "w", newline="") as f:
-        w = csv.writer(f)
+        w = csvsafe.writer(f)
         w.writerow([f"Creator statement — {st['organization']['name']}",
                     f"Period: {start or 'all time'} to {end or 'today'}",
                     (f"Deal: creator {st['deal']['creator_share_pct']:g}% of "
@@ -607,9 +639,16 @@ def creator_statement_csv(org_id: str, start: str | None = None, end: str | None
 
 class PayoutIn(BaseModel):
     date: Annotated[str, BeforeValidator(_required_iso_date)]
-    amount: float = Field(gt=0)
+    amount: Cents = Field(gt=0)
     reference: str | None = None
     note: str | None = None
+
+    @field_validator("amount")
+    @classmethod
+    def _at_least_a_cent(cls, v):
+        if v < 0.01:
+            raise ValueError("A payout must be at least $0.01.")
+        return v
 
 
 @r.post("/creators/{org_id}/payouts")
@@ -739,6 +778,9 @@ def patch_product(pid: str, body: ProductIn):
     d = body.model_dump(exclude_unset=True)
     for k in ("opportunity_id", "audience_id"):
         d.pop(k, None)
+    for k in ("name", "status"):  # required columns: an explicit null means "leave it", not "erase it" (was a 500)
+        if k in d and d[k] is None:
+            d.pop(k)
     if d.get("checkout_url") and not d["checkout_url"].startswith("https://"):
         raise HTTPException(400, "Checkout links must start with https://")
     material = {"name", "price", "price_model", "checkout_url"} & set(d)
@@ -810,9 +852,9 @@ def launch_product(pid: str):
 class SaleIn(BaseModel):
     order_ref: str = Field(min_length=1)
     date: IsoDate = None
-    amount: float = Field(ge=0)
-    refunded_amount: float = Field(default=0, ge=0)
-    fee: float | None = Field(default=None, ge=0)
+    amount: Cents = Field(ge=0)
+    refunded_amount: Cents = Field(default=0, ge=0)
+    fee: OptCents = Field(default=None, ge=0)
     channel: str | None = None
 
     @model_validator(mode="after")
@@ -840,7 +882,10 @@ CHANNEL_KEYS = ("channel", "utm_source", "source", "referrer", "utm_campaign", "
 @r.post("/products/{pid}/sales/import")
 async def import_sales(pid: str, file: UploadFile = File(...)):
     p = product_full(pid)
-    rows = ex.parse_csv(await _read_csv(file))
+    try:
+        rows = ex.parse_csv(await _read_csv(file))
+    except csv.Error as e:
+        raise HTTPException(400, f"This CSV can't be read ({e}). Export it again as CSV UTF-8.")
     if not rows or not (set(rows[0]) & set(ex.ORDER_ID)) or not (set(rows[0]) & set(ex.ORDER_AMT)):
         raise HTTPException(400, "The CSV needs an order ID column (e.g. id, order_id, sale_id) and an amount column "
                                  "(e.g. amount, total, price). Export orders from your checkout (Stripe, Gumroad, Shopify…).")
@@ -848,12 +893,12 @@ async def import_sales(pid: str, file: UploadFile = File(...)):
     errors = []
     with db.tx() as c:
         for i, rr in enumerate(rows, 2):
-            oid, amt = pick(rr, ex.ORDER_ID), ex._num(pick(rr, ex.ORDER_AMT))
+            oid, amt = pick(rr, ex.ORDER_ID), _cents(ex._num(pick(rr, ex.ORDER_AMT)))
             if not oid or amt is None:
                 errors.append(f"Row {i}: missing order ID or amount")
                 continue
             refv = pick(rr, ex.ORDER_REF)
-            ref_amt = ex._num(refv)
+            ref_amt = _cents(ex._num(refv))
             if ref_amt is None and str(refv).lower() in ("true", "yes", "1"):
                 ref_amt = amt
             if ref_amt and ref_amt > amt + 0.005:
@@ -865,7 +910,7 @@ async def import_sales(pid: str, file: UploadFile = File(...)):
                 continue
             cur = c.execute("INSERT OR IGNORE INTO product_sales (id, product_id, order_ref, date, amount, refunded_amount, fee, channel, origin, created_at) "
                             "VALUES (?,?,?,?,?,?,?,?,?,?)", (db.new_id("ps"), pid, str(oid), parse_date(pick(rr, ex.ORDER_DATE)), amt,
-                                                             ref_amt or 0, ex._num(pick(rr, ex.ORDER_FEE)),
+                                                             ref_amt or 0, _cents(ex._num(pick(rr, ex.ORDER_FEE))),
                                                              (str(pick(rr, CHANNEL_KEYS))[:80] if pick(rr, CHANNEL_KEYS) else None), "csv", db.now()))
             imported += cur.rowcount
             dup += 1 - cur.rowcount
@@ -884,7 +929,7 @@ def del_sale(sid: str):
 class CostIn(BaseModel):
     date: IsoDate = None
     category: str = Field(default="other", pattern="^(production|ads|tools|fulfillment|contractor|other)$")
-    amount: float = Field(ge=0)
+    amount: Cents = Field(ge=0)
     shared: bool = True
     note: str | None = None
 

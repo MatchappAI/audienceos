@@ -3,14 +3,13 @@ statement, and a read-only creator portal page (one self-contained HTML file, no
 
 Nothing here moves money or publishes anything: files are written to data/exports for a human to send.
 """
-import csv
 import hashlib
 import html
 import json
 import re
 from datetime import date
 
-from .. import config, db
+from .. import config, csvsafe, db
 from . import agency, optimize
 
 
@@ -67,7 +66,7 @@ def payout_csv(include_demo: bool = False):
     rows = payout_rows(include_demo)
     path = config.EXPORTS_DIR / f"payouts_{date.today():%Y-%m-%d}.csv"
     with open(path, "w", newline="") as f:
-        w = csv.writer(f)
+        w = csvsafe.writer(f)
         w.writerow(PAYOUT_COLS)
         for r in rows:
             w.writerow([r[c] for c in PAYOUT_COLS])

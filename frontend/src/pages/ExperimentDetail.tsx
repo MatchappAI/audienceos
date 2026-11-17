@@ -182,7 +182,7 @@ function Decision({ x, reload }: { x: any; reload: () => void }) {
         <button className="btn danger" onClick={() => decide("stop")} disabled={act.busy}>Stop</button>
         {x.decision && <span className="small muted">Recorded: <Status s={x.decision} />{ev.recommendation && x.decision !== ev.recommendation && REC_TEXT[ev.recommendation] ? <> — overrides the app's recommendation ({ev.recommendation})</> : null}</span>}
       </div>
-      <p className="tiny faint mt">Your decision is recorded next to the app's recommendation. Go marks the opportunity validated; Stop rejects it.</p>
+      <p className="tiny faint mt">Your decision is recorded next to the app's recommendation. Go marks the opportunity validated; Stop rejects it, unless it already has a product (retire the product instead).</p>
       <ErrorBox error={act.error} />
     </div>
   );

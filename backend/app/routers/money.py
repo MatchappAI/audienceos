@@ -1,7 +1,9 @@
 """API: post-pilot money features — payout file, PDF statement, creator portal, next-test suggestions, checkout sync."""
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from ..apimodel import BaseModel
 
 from .. import db
 from ..services import agency, checkout_sync, optimize, statements

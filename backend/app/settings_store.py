@@ -57,9 +57,16 @@ def get_all() -> dict:
     return out
 
 
+CHOICES = {"ai_provider": ("ollama", "anthropic", "openai", "rules"), "theme": ("system", "light", "dark"),
+           "whisper_model": ("tiny", "base", "small", "medium", "large-v3", "tiny.en", "base.en", "small.en", "medium.en")}
+
+
 def _check(k: str, v):
-    """Each setting keeps its default's type, so a string "false" can never switch on external AI."""
+    """Each setting keeps its default's type, so a string "false" can never switch on external AI. Settings with a
+    fixed set of values refuse anything else (an unknown AI provider used to make the dashboard answer 500)."""
     d = DEFAULTS[k]
+    if k in CHOICES and v not in CHOICES[k]:
+        raise ValueError(f"Setting {k} must be one of: {', '.join(CHOICES[k])}.")
     if isinstance(d, bool):
         if not isinstance(v, bool):
             raise ValueError(f"Setting {k} must be true or false.")
