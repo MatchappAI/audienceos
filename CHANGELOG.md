@@ -17,10 +17,12 @@ Found by a seeded generator that drives the real app through every action in eve
 - Unknown values for the AI provider, theme or Whisper model are refused (an unknown provider made the dashboard fail).
 - An invalid audience status, a CSV with a cell over the size limit and a `null` name or status were answered with an error page; they now get a plain message or are ignored.
 - A refused request no longer echoes the rejected value back (it could itself fail to send).
+- **Two creators could end up with the same name** (by renaming one), and "Add creator" with that name then attached the new audience to whichever came first. Renaming to a name already in use is refused; names match regardless of case, including letters like Ñ.
 
 **UX**
 - Leaving the product setup or the deal form with unsaved edits (sidebar, breadcrumbs, closing the tab) now asks first.
 - The experiment page explains that Stop doesn't reject an idea that already has a product.
+- A page for something that no longer exists (deleted, or an old link) offers "Go to the dashboard" instead of a "Try again" that could never work.
 
 ## 1.5.1 — 2026-11-16 (live-app QA pass)
 
