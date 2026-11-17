@@ -83,3 +83,15 @@ export function today(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
+
+// Follower counts as people type them: "12500", "12,500", "12.5k", "1.2M". Blank → null.
+// Anything else (e.g. "12,5k", "lots") throws so the form can say so instead of silently saving nothing.
+export function parseCount(raw: unknown): number | null {
+  const s = String(raw ?? "").trim().replace(/\s+/g, "");
+  if (!s) return null;
+  let m = s.match(/^(\d{1,3}(?:,\d{3})+|\d+)$/);
+  if (m) return Number(m[1].replace(/,/g, ""));
+  m = s.match(/^(\d+(?:\.\d+)?)([kKmM])$/);
+  if (m) return Math.round(Number(m[1]) * (/[kK]/.test(m[2]) ? 1_000 : 1_000_000));
+  throw new Error(`Followers: “${String(raw).trim()}” isn't a number. Type it like 12500, 12,500 or 12.5k.`);
+}

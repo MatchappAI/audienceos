@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from datetime import date as _date
 from typing import Annotated
 
-from pydantic import BaseModel, BeforeValidator, Field, model_validator
+from pydantic import BaseModel, BeforeValidator, Field, field_validator, model_validator
 
 from .. import config, db, jobs
 from ..ai.rules import strip_refs
@@ -535,6 +535,9 @@ class DealIn(BaseModel):
     loss_carry_forward: bool = False
     min_guarantee_monthly: float | None = Field(default=None, ge=0)
     guarantee_months: int | None = Field(default=None, gt=0)
+    # The active deal the editor started from ("" = there was none). Optional; when sent, a save from a page
+    # that is out of date (the terms were changed in another window) is refused instead of overwriting them.
+    replaces_deal_id: str | None = None
 
     @model_validator(mode="after")
     def _dates_in_order(self):
@@ -547,10 +550,15 @@ class DealIn(BaseModel):
 def set_deal(org_id: str, body: DealIn):
     must(db.one("SELECT id FROM organizations WHERE id=?", (org_id,)), "Creator")
     with db.tx() as c:
+        if body.replaces_deal_id is not None:
+            cur = c.execute("SELECT id FROM deals WHERE organization_id=? AND status='active'", (org_id,)).fetchone()
+            if (cur[0] if cur else "") != body.replaces_deal_id:
+                raise HTTPException(409, "These deal terms were changed in another window after you opened this page. "
+                                         "Nothing was saved. Reload the page to see the current terms, then make your change again.")
         c.execute("UPDATE deals SET status='ended', updated_at=? WHERE organization_id=? AND status='active'", (db.now(), org_id))
         db.insert(c, "deals", {"id": db.new_id("dl"), "organization_id": org_id, "status": "active",
                                "created_at": db.now(), "updated_at": db.now(),
-                               **{**body.model_dump(), "loss_carry_forward": int(body.loss_carry_forward),
+                               **{**body.model_dump(exclude={"replaces_deal_id"}), "loss_carry_forward": int(body.loss_carry_forward),
                                   "min_guarantee_monthly": body.min_guarantee_monthly or None}})
         aid = c.execute("SELECT id FROM audiences WHERE organization_id=? LIMIT 1", (org_id,)).fetchone()
         db.log_activity(c, aid[0] if aid else None, "deal",
@@ -640,6 +648,13 @@ class ProductIn(BaseModel):
     checkout_url: str | None = None
     notes: str | None = None
     status: str | None = Field(default=None, pattern="^(draft|paused|retired)$")
+
+    @field_validator("name")
+    @classmethod
+    def _name_not_blank(cls, v: str | None):
+        if v is not None and not v.strip():
+            raise ValueError("can't be blank")
+        return v.strip() if v is not None else v
 
 
 FIELD_LABELS = {"name": "name", "price": "price", "price_model": "pricing model", "checkout_url": "checkout link"}

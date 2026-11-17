@@ -169,16 +169,40 @@ export function Progress({ value }: { value: number }) {
   );
 }
 
-export function Drawer({ title, onClose, children }: { title: React.ReactNode; onClose: () => void; children: React.ReactNode }) {
+// Keeps keyboard focus inside an open dialog, focuses its first field, and gives focus back on close.
+function useDialogFocus(onClose: () => void) {
+  const ref = useRef<HTMLElement | null>(null);
+  const close = useRef(onClose);
+  close.current = onClose;
   useEffect(() => {
-    const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const before = document.activeElement as HTMLElement | null;
+    const box = ref.current;
+    const focusables = () => box ? Array.from(box.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')).filter((e) => e.offsetParent !== null) : [];
+    if (box && !box.contains(document.activeElement)) {
+      const auto = box.querySelector<HTMLElement>("[autofocus], input:not([type=hidden]):not([type=checkbox]), textarea, select");
+      (auto || focusables()[0] || box).focus();
+    }
+    const k = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { close.current(); return; }
+      if (e.key !== "Tab" || !box) return;
+      const f = focusables();
+      if (!f.length) return;
+      const first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && (document.activeElement === first || !box.contains(document.activeElement))) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && (document.activeElement === last || !box.contains(document.activeElement))) { e.preventDefault(); first.focus(); }
+    };
     window.addEventListener("keydown", k);
-    return () => window.removeEventListener("keydown", k);
-  }, [onClose]);
+    return () => { window.removeEventListener("keydown", k); if (before && document.contains(before)) before.focus(); };
+  }, []);
+  return ref;
+}
+
+export function Drawer({ title, onClose, children }: { title: React.ReactNode; onClose: () => void; children: React.ReactNode }) {
+  const ref = useDialogFocus(onClose);
   return (
     <>
       <div className="overlay" onClick={onClose} />
-      <aside className="drawer" role="dialog" aria-modal="true">
+      <aside className="drawer" role="dialog" aria-modal="true" tabIndex={-1} ref={ref as any}>
         <div className="drawer-head">
           <h2 style={{ margin: 0 }}>{title}</h2>
           <button className="btn ghost sm" onClick={onClose} aria-label="Close">
@@ -191,16 +215,14 @@ export function Drawer({ title, onClose, children }: { title: React.ReactNode; o
   );
 }
 
+// Forms live in modals, so a stray click on the dimmed background does not close them (and lose typing):
+// close with ✕, Cancel or Escape.
 export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
-  useEffect(() => {
-    const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", k);
-    return () => window.removeEventListener("keydown", k);
-  }, [onClose]);
+  const ref = useDialogFocus(onClose);
   return (
     <>
-      <div className="overlay" onClick={onClose} />
-      <div className="modal" role="dialog" aria-modal="true">
+      <div className="overlay" />
+      <div className="modal" role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} ref={ref as any}>
         <div className="row between mb">
           <h2 style={{ margin: 0 }}>{title}</h2>
           <button className="btn ghost sm" onClick={onClose} aria-label="Close">

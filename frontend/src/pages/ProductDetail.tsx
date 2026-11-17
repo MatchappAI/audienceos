@@ -5,12 +5,18 @@ import { date, dateTime, money, today } from "../format";
 import { Demo, ErrorBox, Loading, Stat, Status, useApi, useAsync, useToast, V } from "../components/ui";
 
 function Setup({ p, reload }: { p: any; reload: () => void }) {
+  const initial = () => ({ name: p.name, price: p.price ?? "", price_model: p.price_model, storefront: p.storefront || "", checkout_url: p.checkout_url || "", notes: p.notes || "" });
   const [f, setF] = useState<any>({});
-  useEffect(() => setF({ name: p.name, price: p.price ?? "", price_model: p.price_model, storefront: p.storefront || "", checkout_url: p.checkout_url || "", notes: p.notes || "" }), [p.id, p.updated_at]);
+  const [base, setBase] = useState<any>({});
+  useEffect(() => { setF(initial()); setBase(initial()); }, [p.id, p.updated_at]);
   const act = useAsync();
   const toast = useToast();
+  // Only fields changed on this page are sent, so saving here never reverts a change made in another window.
+  const changed = Object.keys(f).filter((k) => String(f[k] ?? "") !== String(base[k] ?? ""));
   const save = async () => {
-    const body = { ...f, price: f.price === "" ? null : Number(f.price), checkout_url: f.checkout_url || null, storefront: f.storefront || null };
+    if (!changed.length) { toast("No changes to save"); return; }
+    const all: any = { ...f, price: f.price === "" ? null : Number(f.price), checkout_url: f.checkout_url || null, storefront: f.storefront || null };
+    const body = Object.fromEntries(changed.map((k) => [k, all[k]]));
     const r = await act.run(() => patch(`/api/products/${p.id}`, body));
     if (r) { toast(r.status === "draft" && p.status !== "draft" ? "Saved — changes need re-approval" : "Saved"); reload(); }
   };

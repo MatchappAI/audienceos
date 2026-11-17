@@ -16,7 +16,7 @@ function ScoreTable({ o, reload }: { o: any; reload: () => void }) {
       <div className="card-head"><h2>Score breakdown</h2><span className="row"><ScoreChip v={o.total_score} /><span className="small muted">/ 100</span></span></div>
       <p className="small muted">{INDEX_NOTE} Index = Σ weight × (score − 1)/4 ÷ Σ weights. “Data” criteria are computed from stored evidence; “model” criteria are the AI's ratings — you can override them. Weights are set in Settings.</p>
       <table className="t">
-        <thead><tr><th>Criterion</th><th className="num">Weight</th><th>Source</th><th className="num">Score (1–5)</th></tr></thead>
+        <thead><tr><th>Criterion</th><th className="num">Weight</th><th>Source</th><th className="num">Score<div className="tiny faint">1–5</div></th></tr></thead>
         <tbody>{o.score_breakdown.map((s: any) => (
           <tr key={s.key}><td>{s.label}</td><td className="num">{s.weight}</td><td><span className={`badge ${s.source === "data" ? "info" : ""}`}>{s.source}</span></td>
             <td className="num">{s.source === "model" ? (

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { post } from "../api";
 import { ago, money, num } from "../format";
@@ -9,6 +10,7 @@ export default function Dashboard() {
   const { data, error, loading, reload } = useApi<any>("/api/dashboard");
   const { kick } = useJobs();
   const nav = useNavigate();
+  const [showAll, setShowAll] = useState(false);
   const demo = useAsync();
 
   const loadDemo = async () => {
@@ -92,9 +94,9 @@ export default function Dashboard() {
               <h2>Recent activity</h2>
               {data.activity.length === 0 ? (
                 <p className="muted">No activity yet.</p>
-              ) : (
+              ) : (<>
                 <ul className="clean small">
-                  {data.activity.map((a: any) => (
+                  {data.activity.slice(0, showAll ? undefined : 8).map((a: any) => (
                     <li key={a.id} className="row between top">
                       <span>
                         {a.audience_id ? <Link to={`/audiences/${a.audience_id}`}>{a.audience_name}</Link> : null}
@@ -105,6 +107,7 @@ export default function Dashboard() {
                     </li>
                   ))}
                 </ul>
+                  {data.activity.length > 8 && <button className="linkbtn small mt" onClick={() => setShowAll(!showAll)}>{showAll ? "Show fewer" : `Show all ${data.activity.length}`}</button>}</>
               )}
             </div>
           </div>

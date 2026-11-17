@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { post } from "../api";
-import { compact, date, num, platformLabel } from "../format";
+import { compact, date, num, parseCount, platformLabel } from "../format";
 import { Demo, Empty, ErrorBox, Loading, Modal, useApi, useAsync } from "../components/ui";
 
 export const CHANNEL_PLATFORMS = ["youtube", "tiktok", "instagram", "facebook", "x", "linkedin", "reddit", "substack",
@@ -21,14 +21,16 @@ export function NewAudienceModal({ onClose }: { onClose: () => void }) {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const r = await run(async () => {
     const body = {
       org_name: org, org_kind: kind, name: name || undefined, niche: niche || undefined, description: desc || undefined,
       channels: chs.filter((c) => c.handle || c.url || c.follower_count).map((c) => ({
         platform: c.platform, handle: c.handle || null, url: c.url || null,
-        follower_count: c.follower_count ? Number(c.follower_count.replace(/[, ]/g, "")) : null,
+        follower_count: parseCount(c.follower_count),
       })),
     };
-    const r = await run(() => post("/api/audiences", body));
+    return post<any>("/api/audiences", body);
+    });
     if (r) nav(`/audiences/${r.id}/sources`);
   };
 
@@ -57,7 +59,7 @@ export function NewAudienceModal({ onClose }: { onClose: () => void }) {
         <h3 className="mt">Channels</h3>
         <p className="small muted">Add each platform where this audience follows them. Follower counts you enter are labeled “entered by you”.</p>
         {chs.map((c, i) => (
-          <div key={i} className="grid" style={{ gridTemplateColumns: "130px 1fr 1fr 110px 28px", gap: 8, marginBottom: 8 }}>
+          <div key={i} className="chan-row">
             <select value={c.platform} onChange={(e) => setCh(i, "platform", e.target.value)} aria-label="Platform">
               {CHANNEL_PLATFORMS.map((p) => <option key={p} value={p}>{platformLabel(p)}</option>)}
             </select>

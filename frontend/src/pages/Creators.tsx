@@ -93,16 +93,20 @@ function PayoutsDue() {
 function DealCard({ st, orgId, reload }: { st: any; orgId: string; reload: () => void }) {
   const d = st.deal;
   const [edit, setEdit] = useState(!d);
-  const [f, setF] = useState<any>({ creator_share_pct: d?.creator_share_pct ?? 70, basis: d?.basis ?? "contribution", start_date: d?.start_date ?? "", end_date: d?.end_date ?? "", notes: d?.notes ?? "",
+  const fromDeal = (d: any) => ({ creator_share_pct: d?.creator_share_pct ?? 70, basis: d?.basis ?? "contribution", start_date: d?.start_date ?? "", end_date: d?.end_date ?? "", notes: d?.notes ?? "",
     loss_carry_forward: !!d?.loss_carry_forward, min_guarantee_monthly: d?.min_guarantee_monthly ?? "", guarantee_months: d?.guarantee_months ?? "" });
+  const [f, setF] = useState<any>(fromDeal(d));
+  // The deal this form was opened from; the server refuses the save if another window changed it meanwhile.
+  const [basedOn, setBasedOn] = useState<string | null>(d?.id ?? null);
+  const startEdit = () => { setF(fromDeal(d)); setBasedOn(d?.id ?? null); act.setError(null); setEdit(true); };
   const act = useAsync();
   const save = async () => {
-    if (await act.run(() => post(`/api/creators/${orgId}/deal`, { ...f, creator_share_pct: Number(f.creator_share_pct), start_date: f.start_date || null, end_date: f.end_date || null, notes: f.notes || null,
+    if (await act.run(() => post(`/api/creators/${orgId}/deal`, { ...f, replaces_deal_id: basedOn ?? "", creator_share_pct: Number(f.creator_share_pct), start_date: f.start_date || null, end_date: f.end_date || null, notes: f.notes || null,
       min_guarantee_monthly: f.min_guarantee_monthly === "" ? null : Number(f.min_guarantee_monthly), guarantee_months: f.guarantee_months === "" ? null : Number(f.guarantee_months) }))) { setEdit(false); reload(); }
   };
   return (
     <div className="card">
-      <div className="card-head"><h2>Revenue-share deal</h2>{!edit && <button className="btn sm" onClick={() => setEdit(true)}>Change terms</button>}</div>
+      <div className="card-head"><h2>Revenue-share deal</h2>{!edit && <button className="btn sm" onClick={startEdit}>Change terms</button>}</div>
       {!edit && d ? (
         <dl className="kv small">
           <dt>Split</dt><dd><b>{d.creator_share_pct}%</b> to creator · <b>{100 - d.creator_share_pct}%</b> to agency</dd>
@@ -132,7 +136,7 @@ function DealCard({ st, orgId, reload }: { st: any; orgId: string; reload: () =>
           {f.min_guarantee_monthly !== "" && Number(f.min_guarantee_monthly) > 0 && <p className="tiny faint">Recoupable: for each completed month from the start date, the creator is owed at least this much in total; their earned share pays it back first.</p>}
           <label className="field"><span>Notes</span><input value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} placeholder="e.g. signed agreement dated…" /></label>
           <p className="small muted">Agency share = {100 - Number(f.creator_share_pct || 0)}%. Changing terms ends the current deal and starts a new one; it applies to all-time figures in statements.</p>
-          <div className="row"><button className="btn primary" onClick={save} disabled={act.busy}>Save deal</button>{d && <button className="btn" onClick={() => setEdit(false)}>Cancel</button>}</div>
+          <div className="row"><button className="btn primary" onClick={save} disabled={act.busy}>Save deal</button>{d && <button className="btn" onClick={() => { setEdit(false); act.setError(null); }}>Cancel</button>}</div>
         </>
       )}
       <ErrorBox error={act.error} />

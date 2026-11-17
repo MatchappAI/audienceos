@@ -7,6 +7,10 @@ export class ApiError extends Error {
   }
 }
 
+// Plain names for API fields that show up in validation messages.
+const FIELD_NAMES: Record<string, string> = { org_name: "creator or business name", name: "name", follower_count: "followers", creator_share_pct: "creator share",
+  contact_email: "email", start_date: "start date", end_date: "end date" };
+
 async function handle(res: Response): Promise<any> {
   const ct = res.headers.get("content-type") || "";
   const body = ct.includes("application/json") ? await res.json().catch(() => null) : await res.text();
@@ -15,7 +19,8 @@ async function handle(res: Response): Promise<any> {
     if (body && typeof body === "object" && "detail" in body) {
       const d = (body as any).detail;
       msg = typeof d === "string" ? d : Array.isArray(d) ? d.map((x: any) => {
-        const field = (x.loc || []).slice(1).join(".").replace(/_/g, " ");
+        const key = (x.loc || []).slice(1).join(".");
+        const field = (FIELD_NAMES[key] || key.replace(/_/g, " ")).replace(/^./, (c: string) => c.toUpperCase());
         const m = String(x.msg || "").replace(/^Value error, /, "");
         return field && !/^\d+$/.test(field) ? `${field}: ${m}` : m;
       }).join("; ") : JSON.stringify(d);

@@ -7,7 +7,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from .. import cleanup, config, db, jobs, settings_store
 from ..ai import providers
@@ -298,6 +298,13 @@ class ChannelIn(BaseModel):
 
 class AudienceIn(BaseModel):
     org_name: str = Field(min_length=1, max_length=200)
+
+    @field_validator("org_name")
+    @classmethod
+    def _org_not_blank(cls, v: str):
+        if not v.strip():
+            raise ValueError("can't be blank")
+        return v.strip()
     org_kind: str = "creator"
     name: str | None = None
     niche: str | None = None
@@ -366,6 +373,14 @@ class AudiencePatch(BaseModel):
     description: str | None = None
     status: str | None = None
     org_name: str | None = None
+
+    @field_validator("name", "org_name")
+    @classmethod
+    def _not_blank(cls, v: str | None, info):
+        # A blank name used to be silently ignored (org) or saved as "" (audience). Refuse it out loud.
+        if v is not None and not v.strip():
+            raise ValueError("can't be blank")
+        return v.strip() if v is not None else v
 
 
 @r.patch("/audiences/{aid}")

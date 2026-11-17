@@ -117,7 +117,7 @@ export default function Settings() {
             <h2>Local model (Ollama)</h2>
             <label className="field"><span>Model used for analysis</span>
               <select value={s.ollama_model} onChange={(e) => set("ollama_model", e.target.value)}>
-                {(ollama?.installed_models || []).concat(ollama?.installed_models?.includes(s.ollama_model) ? [] : [s.ollama_model]).map((m: string) => <option key={m}>{m}</option>)}
+                {(ollama?.installed_models || []).filter((m: string) => !/embed/i.test(m) || m === s.ollama_model).concat(ollama?.installed_models?.includes(s.ollama_model) ? [] : [s.ollama_model]).map((m: string) => <option key={m} value={m}>{m}{VISION_RX.test(m) ? " (vision model; slower for text)" : ""}</option>)}
               </select></label>
             <label className="field"><span>Vision model for video frames & images (optional)</span>
               <select value={s.ollama_vision_model || ""} onChange={(e) => set("ollama_vision_model", e.target.value)}>

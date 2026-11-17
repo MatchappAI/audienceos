@@ -108,7 +108,9 @@ function FileAdder({ aid, onDone }: { aid: string; onDone: () => void }) {
 
   return (
     <div>
-      <div className={`dropzone ${over ? "over" : ""}`} onClick={() => input.current?.click()}
+      <div className={`dropzone ${over ? "over" : ""}`} onClick={() => input.current?.click()} role="button" tabIndex={0}
+        aria-label="Choose files to import (or drop them here)"
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.current?.click(); } }}
         onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
         onDrop={(e) => { e.preventDefault(); setOver(false); setFiles([...files, ...Array.from(e.dataTransfer.files)]); }}>
         <div className="strong" style={{ color: "var(--ink)" }}>Drop files here or click to choose</div>

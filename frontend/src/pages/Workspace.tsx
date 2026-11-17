@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, NavLink, Navigate, useNavigate, useParams } from "react-router-dom";
 import { del, patch, post } from "../api";
-import { compact, date, dateTime, num, platformLabel } from "../format";
+import { compact, date, dateTime, num, parseCount, platformLabel } from "../format";
 import { Bullets, Demo, Empty, ErrorBox, JobLine, Loading, Modal, Stat, Status, useApi, useAsync, useJobs, useToast } from "../components/ui";
 import SourcesTab from "./Sources";
 import { ProblemsView, ProfileView, SignalsView } from "./Intelligence";
@@ -72,6 +72,11 @@ export function AnalyzePanel({ a, compact: small }: { a: any; compact?: boolean 
     }
   };
 
+  const stop = async () => {
+    if (!running || !window.confirm("Stop this analysis? Nothing is saved from this run; the previous results (if any) stay. You can run it again any time.")) return;
+    if (await run(() => post(`/api/jobs/${running.id}/cancel`))) { kick(); toast("Analysis stopped"); }
+  };
+
   return (
     <div className="card">
       <div className="row between top">
@@ -107,7 +112,10 @@ export function AnalyzePanel({ a, compact: small }: { a: any; compact?: boolean 
         </div>
         <div style={{ textAlign: "right" }}>
           {running ? (
-            <JobLine job={running} />
+            <>
+              <JobLine job={running} />
+              <button className="btn sm mt" onClick={stop} disabled={busy}>{busy ? "Stopping…" : "Stop analysis"}</button>
+            </>
           ) : (
             <button className="btn primary" onClick={go}
               disabled={busy || !hasMaterial || !prov?.available || (prov?.external && !confirm)}>
@@ -127,16 +135,19 @@ export function AnalyzePanel({ a, compact: small }: { a: any; compact?: boolean 
 }
 
 function ChannelEditor({ a, reload }: { a: any; reload: () => void }) {
-  const [form, setForm] = useState<any | null>(null);
-  const { error, run, busy } = useAsync();
+  const [form, setFormRaw] = useState<any | null>(null);
+  const { error, run, busy, setError } = useAsync();
+  const setForm = (f: any) => { if (!form || !f) setError(null); setFormRaw(f); };
   const save = async () => {
-    const body = { platform: form.platform, handle: form.handle || null, url: form.url || null,
-      follower_count: form.follower_count === "" || form.follower_count === null ? null : Number(String(form.follower_count).replace(/[, ]/g, "")) };
-    const r = await run(() => (form.id ? patch(`/api/channels/${form.id}`, body) : post(`/api/audiences/${a.id}/channels`, body)));
+    const r = await run(() => {
+      const body = { platform: form.platform, handle: form.handle || null, url: form.url || null, follower_count: parseCount(form.follower_count) };
+      return form.id ? patch(`/api/channels/${form.id}`, body) : post(`/api/audiences/${a.id}/channels`, body);
+    });
     if (r) { setForm(null); reload(); }
   };
-  const remove = async (cid: string) => {
-    if (await run(() => del(`/api/channels/${cid}`))) reload();
+  const remove = async (c: any) => {
+    if (!window.confirm(`Remove the ${platformLabel(c.platform)} channel${c.handle ? ` ${c.handle}` : ""}? Its follower count stops counting toward audience size.`)) return;
+    if (await run(() => del(`/api/channels/${c.id}`))) reload();
   };
   return (
     <div className="card">
@@ -156,14 +167,14 @@ function ChannelEditor({ a, reload }: { a: any; reload: () => void }) {
                 <td className="small muted">{c.follower_count_source || "—"}</td>
                 <td className="num">
                   <button className="btn ghost sm" onClick={() => setForm({ ...c, follower_count: c.follower_count ?? "" })}>Edit</button>
-                  <button className="btn ghost sm danger" onClick={() => remove(c.id)}>Remove</button>
+                  <button className="btn ghost sm danger" onClick={() => remove(c)}>Remove</button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       )}
-      <ErrorBox error={error} />
+      {!form && <ErrorBox error={error} />}
       {form && (
         <Modal title={form.id ? "Edit channel" : "Add channel"} onClose={() => setForm(null)}>
           <label className="field"><span>Platform</span>
@@ -173,7 +184,8 @@ function ChannelEditor({ a, reload }: { a: any; reload: () => void }) {
           <label className="field"><span>Handle</span><input value={form.handle || ""} onChange={(e) => setForm({ ...form, handle: e.target.value })} /></label>
           <label className="field"><span>URL</span><input value={form.url || ""} onChange={(e) => setForm({ ...form, url: e.target.value })} /></label>
           <label className="field"><span>Followers / subscribers</span>
-            <input inputMode="numeric" value={form.follower_count} onChange={(e) => setForm({ ...form, follower_count: e.target.value })} /></label>
+            <input inputMode="numeric" value={form.follower_count} onChange={(e) => setForm({ ...form, follower_count: e.target.value })} placeholder="e.g. 12500 or 12.5k" /></label>
+          <ErrorBox error={error} />
           <div className="row" style={{ justifyContent: "flex-end" }}>
             <button className="btn" onClick={() => setForm(null)}>Cancel</button>
             <button className="btn primary" onClick={save} disabled={busy}>Save</button>
@@ -235,7 +247,7 @@ function Overview({ a, reload }: { a: any; reload: () => void }) {
       <div className="card">
         <div className="card-head">
           <h2>Details</h2>
-          {!edit && <button className="btn sm" onClick={() => setEdit(true)}>Edit</button>}
+          {!edit && <button className="btn sm" onClick={() => { setF({ name: a.name, niche: a.niche || "", description: a.description || "", org_name: a.org_name }); setEdit(true); }}>Edit</button>}
         </div>
         {edit ? (
           <>
